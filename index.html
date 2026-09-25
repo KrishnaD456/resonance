@@ -563,11 +563,11 @@ textarea::placeholder{color:#94a3b8}
         <div class="guide-item"><strong>CHURN</strong> <b>Second Thoughts:</b> <code>1.0x</code> means you typed straight through. Higher numbers mean you rewrote your thought multiple times.</div>
         <div class="guide-item"><strong>STARE</strong> <b>Lingering:</b> How many seconds you stared at the screen after typing before hitting Send.</div>
         <div class="guide-item"><strong>LIWC-I</strong> <b>Self-Focus:</b> The percentage of <i>"I, me, my"</i> words—showing how personal or inward-focused the message is.</div>
-        <div class="guide-item"><strong>FORCE</strong> <b>Thumb Pressure:</b> How firmly your thumb strikes the glass or holds down keys (heavier force emboldens the ink).</div>
+        <div class="guide-item"><strong>FORCE</strong> <b>Impact &amp; Shake Force:</b> Measures key-hold pressure on desktop and physical thumb-strike / hand-shake G-force on mobile (up to <code>300ms</code>).</div>
         <div class="guide-item"><strong>MED-ITD</strong> <b>Typical Pace:</b> Your median rhythm between letters in milliseconds.</div>
         <div class="guide-item"><strong>Q1-FAST</strong> <b>Burst Speed:</b> Your fastest 25% of taps—fast bursts add energetic forward slant.</div>
         <div class="guide-item"><strong>PAUSE</strong> <b>Breathing Room:</b> When you hit Space and pause to think, a physical gap and ink drop grow between words.</div>
-        <div class="guide-item"><strong>BKSP</strong> <b>Erase Energy:</b> <b>Calm</b> leaves a neat, readable line-through; <b>Frantic</b> furiously scratches the word out so nobody can read it.</div>
+        <div class="guide-item"><strong>BKSP</strong> <b>Erase Energy:</b> <b>Calm</b> leaves a neat, readable line-through; <b>Frantic</b> furiously scratches the word out with haptic vibration.</div>
         <div class="guide-item"><strong>💡 Tip</strong> <b>Tap Any Sent Bubble:</b> Tap any message in the chat to open its <b>Ink X-Ray</b> and see how it was typed.</div>
       </div>
     </div>
@@ -597,7 +597,7 @@ const CONFIG = Object.freeze({
   vaderExclamDelta: 0.292,
   vaderBeforeButWeight: 0.5,
   vaderAfterButWeight: 1.5,
-  heavyDwellMs: 96,
+  heavyDwellMs: 98,
   lightDwellMs: 74,
   desktopFastFlightMs: 78,
   mobileFastFlightMs: 120,
@@ -697,6 +697,7 @@ const state = {
   lastKeyUpTime: null,
   lastZAccel: null,
   recentMotionJolt: 0,
+  lastHapticTime: 0,
   backspaceTimes: [],
   lastBackspaceActionTime: null,
   franticStreakActive: false,
@@ -725,9 +726,17 @@ const state = {
   reportHistory: []
 };
 
-function triggerHaptic(pattern) {
+/*
+ * Direct Hardware Haptic Engine:
+ * Throttled by 40ms so rapid events don't cancel each other out on Android LRA motors.
+ */
+function triggerHaptic(pattern, forceImmediate) {
   try {
-    if (navigator.vibrate) navigator.vibrate(pattern);
+    if (!navigator.vibrate) return;
+    const now = performance.now();
+    if (!forceImmediate && (now - state.lastHapticTime) < 45) return;
+    state.lastHapticTime = now;
+    navigator.vibrate(pattern);
   } catch (e) {}
 }
 
@@ -1377,7 +1386,7 @@ function deliveryAnalysis(physical, hasGhosts, pools) {
       Math.max(0, physical.churn - 1) / 1.8,
       hasGhosts ? 0.65 : 0
     )),
-    pressure: clamp01((physical.avgDwellMs || 75) / 130),
+    pressure: clamp01((physical.avgDwellMs || 75) / 180),
     disfluency: clamp01(physical.qcd || 0),
     pooling: pools ? 1 : 0
   };
@@ -1420,8 +1429,8 @@ function computePhysicsField(semantic, meaning, expression, delivery, structural
     if (medItd > 0 && medItd <= activeFastFlightThreshold() && avgDwell > 0 && avgDwell <= CONFIG.lightDwellMs && !delivery.edited && !delivery.hesitant) {
       warmth = clamp01(warmth + 0.44);
       neuromotorState = 'buoyant-flow';
-    } else if (avgDwell >= CONFIG.heavyDwellMs && (physical.burst || (physical.qcd || 0) > 0.38)) {
-      tension = clamp01(tension + 0.48);
+    } else if (avgDwell >= CONFIG.heavyDwellMs && (physical.burst || avgDwell >= 135 || (physical.qcd || 0) > 0.38)) {
+      tension = clamp01(tension + 0.52);
       neuromotorState = 'high-pressure-tension';
     } else if ((medItd >= activeSlowFlightThreshold() || delivery.hesitant) && liwc.highSelfFocus) {
       heaviness = clamp01(heaviness + 0.45);
@@ -1649,7 +1658,7 @@ function structuralAnalysis(tokens, raw) {
 }
 
 function computeQuartileStats(arr) {
-  if (!arr || !arr.length) return { mean: 0, q1: Infinity, median: 0, q3: 0, qcd: 0, cv: 0 };
+  if (!arr || !arr.length) return { mean: 0, q1: Infinity, median: 0, q3: 0, max: 0, qcd: 0, cv: 0 };
   const sorted = arr.slice().sort(function(a, b) { return a - b; });
   const n = sorted.length;
   const sum = sorted.reduce(function(a, b) { return a + b; }, 0);
@@ -1668,6 +1677,7 @@ function computeQuartileStats(arr) {
   const q1 = percentile(0.25);
   const median = percentile(0.50);
   const q3 = percentile(0.75);
+  const max = sorted[n - 1];
   const qcd = (q3 + q1) > 0 ? (q3 - q1) / (q3 + q1) : 0;
 
   let cv = 0;
@@ -1676,7 +1686,7 @@ function computeQuartileStats(arr) {
     cv = Math.sqrt(variance) / mean;
   }
 
-  return { mean: mean, q1: q1, median: median, q3: q3, qcd: qcd, cv: cv };
+  return { mean: mean, q1: q1, median: median, q3: q3, max: max, qcd: qcd, cv: cv };
 }
 
 function physicalAnalysis() {
@@ -1686,6 +1696,11 @@ function physicalAnalysis() {
 
   const itdStats = computeQuartileStats(state.keyTimes);
   const dwellStats = computeQuartileStats(state.dwellTimes);
+
+  // Recent 4-tap window so shaking/forceful tapping spikes the HUD immediately instead of being hidden by earlier calm taps!
+  const recentDwells = state.dwellTimes.slice(-4);
+  const recentDwellStats = computeQuartileStats(recentDwells);
+  const responsiveForceMs = Math.max(dwellStats.q3 || 0, recentDwellStats.q3 || 0, dwellStats.mean || 0);
 
   const guarded = churn >= CONFIG.churnThreshold;
   const stare = state.stareMs >= CONFIG.stareThresholdMs;
@@ -1720,7 +1735,8 @@ function physicalAnalysis() {
     burst: burst,
     rapidRun: maxRapidRun,
     longestPauseMs: longestPauseMs,
-    avgDwellMs: dwellStats.median || dwellStats.mean,
+    avgDwellMs: responsiveForceMs,
+    peakDwellMs: dwellStats.max,
     avgFlightMs: itdStats.median || itdStats.mean,
     rhythmCv: itdStats.cv
   };
@@ -1915,6 +1931,7 @@ function createBalloonDOM(msg, isPreview) {
         span.style.cursor = 'pointer';
         span.addEventListener('click', function(ev) {
           ev.stopPropagation();
+          triggerHaptic(20, true);
           const arr = state.ghostsAtSlot[w.slotIndex] || [];
           state.ghostsAtSlot[w.slotIndex] = arr.filter(function(g) { return g !== w.ghostRef && g.text !== w.text; });
           if (!state.ghostsAtSlot[w.slotIndex].length) delete state.ghostsAtSlot[w.slotIndex];
@@ -2016,7 +2033,7 @@ function buildDraftMessage(includeLiveWaiting) {
 
       if (livePooling && !state.hapticPoolFiredForSlot[i]) {
         state.hapticPoolFiredForSlot[i] = true;
-        triggerHaptic(10);
+        triggerHaptic(28);
       }
 
       const cInfo = clauseMap[i] || {};
@@ -2134,6 +2151,7 @@ function renderFeed() {
     xrayEl.textContent = m.xrayText || ('🔍 Ink X-Ray: ' + m.caption);
 
     balloonEl.addEventListener('click', function() {
+      triggerHaptic(15, true);
       xrayEl.classList.toggle('open');
     });
 
@@ -2205,10 +2223,6 @@ function commitDeletionTracesNow() {
   const tokens = tokenize(raw);
   const targetSlot = tokens.length;
   const frantic = isRecentBackspaceBurstFrantic(performance.now());
-
-  if (frantic) {
-    triggerHaptic([18, 28, 18]);
-  }
 
   if (targetSlot > 0) {
     delete state.pauseGapsBySlot[targetSlot - 1];
@@ -2285,7 +2299,7 @@ function onDeviceMotion(e) {
   if (!acc || typeof acc.z !== 'number') return;
   if (state.lastZAccel != null) {
     const jolt = Math.abs(acc.z - state.lastZAccel);
-    state.recentMotionJolt = Math.max(state.recentMotionJolt * 0.75, jolt);
+    state.recentMotionJolt = Math.max(state.recentMotionJolt * 0.82, jolt);
   }
   state.lastZAccel = acc.z;
 }
@@ -2325,6 +2339,13 @@ function onInput(e) {
         state.franticStreakActive = true;
       }
     }
+
+    // SYNCHRONOUS HAPTIC FEEDBACK ON ERASE (Never blocked by Chrome timer policies!)
+    if (state.franticStreakActive) {
+      triggerHaptic([50, 30, 80]);
+    } else {
+      triggerHaptic(32);
+    }
   } else if (charDiff > 0) {
     state.franticStreakActive = false;
     state.totalKeys += charDiff === 1 ? 1 : Math.min(charDiff, 4);
@@ -2333,10 +2354,14 @@ function onInput(e) {
 
   const isSwipeOrAutocomplete = Math.abs(charDiff) > 1 && delta < 45;
 
-  if (state.isMobileMode && state.recentMotionJolt > 0.08) {
-    const syntheticDwell = Math.min(140, Math.max(55, Math.round(62 + state.recentMotionJolt * 32)));
+  // Uncapped Mobile Force Formula (scales up to 300ms when shaking/tapping forcefully!)
+  if (state.isMobileMode && state.recentMotionJolt > 0.06) {
+    const syntheticDwell = Math.min(300, Math.max(55, Math.round(62 + state.recentMotionJolt * 45)));
     state.dwellTimes.push(syntheticDwell);
     if (state.dwellTimes.length > 60) state.dwellTimes.shift();
+    if (syntheticDwell >= 135) {
+      triggerHaptic(30);
+    }
     state.recentMotionJolt = 0;
   }
 
@@ -2473,6 +2498,9 @@ function onKeydown(e) {
     }
     if (isRecentBackspaceBurstFrantic(now)) {
       state.franticStreakActive = true;
+      triggerHaptic([50, 30, 80]);
+    } else {
+      triggerHaptic(30);
     }
   }
 
@@ -2503,12 +2531,13 @@ function onSendPointerDown(e) {
   const p = typeof e.pressure === 'number' && e.pressure > 0 ? e.pressure : 0;
   const radiusBoost = (e.width && e.width > 18) ? Math.min(0.4, (e.width - 18) / 40) : 0;
   state.sendPressure = Math.max(p, radiusBoost);
+  triggerHaptic([25, 35, 55], true);
 }
 
 function onSendPointerUp(e) {
   if (state.sendPressTime != null) {
     const holdMs = performance.now() - state.sendPressTime;
-    const pressureBonus = state.sendPressure > 0.45 ? 25 : 0;
+    const pressureBonus = state.sendPressure > 0.45 ? 35 : 0;
     if (holdMs >= 18 && holdMs < 800) {
       state.dwellTimes.push(holdMs + pressureBonus);
       if (state.dwellTimes.length > 60) state.dwellTimes.shift();
@@ -2577,6 +2606,7 @@ function toggleHud() {
 }
 
 function clearChat() {
+  triggerHaptic(35, true);
   messages = [];
   state.reportHistory = [];
   renderFeed();
@@ -2686,6 +2716,7 @@ function makeReport() {
 }
 
 async function copyReport() {
+  triggerHaptic(25, true);
   const report = makeReport();
   try {
     await navigator.clipboard.writeText(report);
@@ -2740,6 +2771,7 @@ sendBtn.addEventListener('pointerup', onSendPointerUp);
 
 const infoModal = byId('infoModal');
 byId('infoBtn').addEventListener('click', function() {
+  triggerHaptic(15, true);
   infoModal.classList.add('open');
 });
 byId('closeModalBtn').addEventListener('click', function() {
