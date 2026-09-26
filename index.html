@@ -299,13 +299,6 @@ body{
 /* ============================================================
    FORENSIC GRAPHOLOGY SEPARATION: SPEED (GLIDE) VS. FORCE (BLEED)
    ============================================================ */
-
-/*
- * A) FAST VELOCITY (.w-fast-glide):
- * Forensic wrist-momentum writing: letters crowd closer together (-0.55px),
- * words sit tighter together, and strokes lean forward (-11deg skewX)
- * without artificial heavy ink-bleed.
- */
 .w-fast-glide{
   letter-spacing:-0.55px!important;
   margin-right:3.8px!important;
@@ -314,12 +307,6 @@ body{
   transform:skewX(-11deg);
 }
 
-/*
- * B) HIGH AXIAL NIB FORCE (.w-heavy-force):
- * Heavy nib pressure splits the pen tip and dumps ink into paper fibers:
- * 900 ultra-bold weight, glowing ink-bleed halo, and a bottom pressure underline,
- * while staying upright unless also typed fast!
- */
 .w-heavy-force{
   font-weight:900!important;
   border-bottom:2px solid rgba(251,113,133,0.78);
@@ -333,12 +320,6 @@ body{
 /* ============================================================
    DISTINCT EMOTION TYPOGRAPHY
    ============================================================ */
-
-/*
- * 1. WARM / JOYFUL (1.35s Upbeat ~90 BPM Joyful Tempo):
- * Words have a lively 2.6px buoyant hop + playful -1.8deg tilt, while
- * individual letters softly bloom in sunlit gold!
- */
 .w-token.tone-warm{
   animation:warmJoySpring 1.35s cubic-bezier(0.34, 1.56, 0.64, 1) infinite alternate;
 }
@@ -364,7 +345,6 @@ body{
   }
 }
 
-/* 2. SAD / SIGH: Slow sinking ink bleed & wider separated letters */
 .w-token.tone-sigh{
   letter-spacing:0.65px;
   animation:sighWordSink 3.6s ease-in-out infinite alternate;
@@ -378,7 +358,6 @@ body{
   100%{transform:translateY(2.2px);opacity:0.48;filter:blur(0.35px)}
 }
 
-/* 3. ANGRY / TENSE: Locked forward slash (-8deg) + Electric Lightning Snap */
 .w-token.tone-tense{
   transform:skewX(-8deg);
   animation:tenseElectricSnap 2.6s infinite;
@@ -492,7 +471,6 @@ body{
   overflow-y:auto;
   overflow-x:hidden;
 }
-/* Physical Visual Micro-Shake when Frantic Backspace fires on mobile */
 .preview-card.preview-shake{
   animation:franticCardShake 0.22s ease-in-out;
   border-color:#fb7185;
@@ -574,7 +552,6 @@ textarea::placeholder{color:#94a3b8}
   <div class="top-bar">
     <div><span class="brand">Resonance v1</span><span class="sub-brand">Living Ink Messenger · Tap Any Bubble for X-Ray</span></div>
     <div class="top-actions">
-      <button id="soundBtn" class="report-btn active-toggle" type="button" title="Toggle tactile micro-acoustics">🔊</button>
       <button id="infoBtn" class="report-btn" type="button" title="How Resonance works">ⓘ Guide</button>
       <button id="hudBtn" class="report-btn active-toggle" type="button" title="Show or hide telemetry bar">📊 HUD</button>
       <button id="clearBtn" class="report-btn" type="button" title="Clear chat feed">🗑️</button>
@@ -641,7 +618,7 @@ textarea::placeholder{color:#94a3b8}
         <div class="guide-item"><strong>FORCE</strong> <b>Nib Pressure:</b> Measures key-hold duration on desktop and physical thumb-impact / shake G-force on mobile (up to <code>300ms</code>).</div>
         <div class="guide-item"><strong>MED-ITD &amp; Q1</strong> <b>Pace &amp; Burst:</b> Your typical rhythm (<code>MED-ITD</code>) and fastest 25% of taps (<code>Q1-FAST</code>).</div>
         <div class="guide-item"><strong>PAUSE</strong> <b>Breathing Room:</b> Hit Space and pause to grow a physical gap and ink pool between words.</div>
-        <div class="guide-item"><strong>BKSP</strong> <b>Erase Energy:</b> <b>Calm</b> leaves a neat single strike-through; <b>Frantic</b> furiously scratches the word out with a tactile scratch sound &amp; shake.</div>
+        <div class="guide-item"><strong>BKSP</strong> <b>Erase Energy:</b> <b>Calm</b> leaves a neat single strike-through; <b>Frantic</b> furiously scratches the word out with a physical card shake.</div>
       </div>
     </div>
   </div>
@@ -670,7 +647,8 @@ const CONFIG = Object.freeze({
   vaderExclamDelta: 0.292,
   vaderBeforeButWeight: 0.5,
   vaderAfterButWeight: 1.5,
-  heavyDwellMs: 98,
+  desktopHeavyDwellMs: 128,
+  mobileHeavyDwellMs: 112,
   lightDwellMs: 74,
   desktopFastFlightMs: 78,
   mobileFastFlightMs: 120,
@@ -762,7 +740,6 @@ const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 
 
 const state = {
   isMobileMode: isTouchDevice,
-  soundEnabled: true,
   hudCollapsed: false,
   totalKeys: 0,
   keyTimes: [],
@@ -773,7 +750,6 @@ const state = {
   lastZAccel: null,
   recentMotionJolt: 0,
   lastHapticTime: 0,
-  lastScratchSoundTime: 0,
   backspaceTimes: [],
   lastBackspaceActionTime: null,
   franticStreakActive: false,
@@ -801,143 +777,6 @@ const state = {
   reportSnapshot: null,
   reportHistory: []
 };
-
-/* ============================================================
-   WEB AUDIO API MICRO-ACOUSTICS ENGINE (Zero External MP3s)
-   Synthesizes subtle, physical 70ms-240ms sounds for Send & Erase
-   ============================================================ */
-let audioCtx = null;
-function getAudioCtx() {
-  if (!state.soundEnabled) return null;
-  try {
-    if (!audioCtx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (AC) audioCtx = new AC();
-    }
-    if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
-    return audioCtx;
-  } catch (e) {
-    return null;
-  }
-}
-
-function playSendAcoustic(toneStyle) {
-  const ctx = getAudioCtx();
-  if (!ctx) return;
-  try {
-    const now = ctx.currentTime;
-    if (toneStyle === 'balloon-warm') {
-      // Soft, warm 2-note wooden marimba/kalimba harmonic bloom (C5 -> E5)
-      [523.25, 659.25].forEach(function(freq, idx) {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        const start = now + idx * 0.065;
-        osc.frequency.setValueAtTime(freq, start);
-        gain.gain.setValueAtTime(0.001, start);
-        gain.gain.exponentialRampToValueAtTime(0.11, start + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.0008, start + 0.19);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(start);
-        osc.stop(start + 0.2);
-      });
-    } else if (toneStyle === 'balloon-whisper') {
-      // Low, muted felt-piano exhale sigh (A3 -> F3 slow pitch droop)
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(220, now);
-      osc.frequency.exponentialRampToValueAtTime(164.8, now + 0.26);
-      gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.09, now + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.28);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.29);
-    } else if (toneStyle === 'balloon-urgent') {
-      // Crisp 110ms high-voltage electric spark snap + tight sub-bass punch
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(155, now);
-      osc.frequency.exponentialRampToValueAtTime(42, now + 0.11);
-      gain.gain.setValueAtTime(0.14, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.13);
-    } else if (toneStyle === 'balloon-mixed') {
-      // Conflicted Arc: Low indigo note resolving into warm upper fifth (D4 -> A4)
-      [293.66, 440.0].forEach(function(freq, idx) {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        const start = now + idx * 0.08;
-        osc.frequency.setValueAtTime(freq, start);
-        gain.gain.setValueAtTime(0.001, start);
-        gain.gain.exponentialRampToValueAtTime(0.09, start + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(start);
-        osc.stop(start + 0.21);
-      });
-    } else {
-      // Neutral / Steady: Clean 65ms fountain-pen-nib tactile click
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(380, now);
-      osc.frequency.exponentialRampToValueAtTime(190, now + 0.055);
-      gain.gain.setValueAtTime(0.07, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.065);
-    }
-  } catch (e) {}
-}
-
-function playFranticScratchAcoustic() {
-  const nowPerf = performance.now();
-  if (nowPerf - state.lastScratchSoundTime < 90) return;
-  state.lastScratchSoundTime = nowPerf;
-
-  const ctx = getAudioCtx();
-  if (!ctx) return;
-  try {
-    // 40ms filtered noise + low thump = tactile pen-scratching-paper feedback
-    const now = ctx.currentTime;
-    const bufferSize = Math.floor(ctx.sampleRate * 0.045);
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.4));
-    }
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(1100, now);
-    filter.Q.setValueAtTime(2.2, now);
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.12, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
-
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
-    noise.start(now);
-  } catch (e) {}
-}
 
 function triggerHaptic(pattern, forceImmediate) {
   try {
@@ -970,6 +809,15 @@ function activeFastFlightThreshold() {
 
 function activeSlowFlightThreshold() {
   return state.isMobileMode ? CONFIG.mobileSlowFlightMs : CONFIG.desktopSlowFlightMs;
+}
+
+/*
+ * Device-Specific Heavy Force Threshold:
+ * - Mobile (112ms): sensitive to thumb-strike & phone accelerometer jolts.
+ * - Desktop (128ms): prevents normal 85ms-115ms mechanical key-holds from false-triggering Heavy Force.
+ */
+function activeHeavyDwellThreshold() {
+  return state.isMobileMode ? CONFIG.mobileHeavyDwellMs : CONFIG.desktopHeavyDwellMs;
 }
 
 function clamp01(v) {
@@ -1171,12 +1019,22 @@ function isTokenNegated(subTokens, index, fullSentenceLower) {
   return false;
 }
 
+function isLaughExpression(norm) {
+  if (!norm || norm.length < 3) return false;
+  if (/^(h+a+)+h*$/.test(norm) && norm.indexOf('h') !== -1 && norm.indexOf('a') !== -1) return true;
+  if (/^(h+e+)+h*$/.test(norm) && norm !== 'he' && norm !== 'hee') return true;
+  if (/^(l+o+l+)+o*$/.test(norm)) return true;
+  return false;
+}
+
 function matchEmotionFamily(rawToken, nextTokenNorm) {
   const tokenEmojis = findEmojiSignals(rawToken);
   if (tokenEmojis.length) return tokenEmojis[0].family;
 
   const exactNorm = normalizeToken(rawToken);
   if (!exactNorm) return null;
+
+  if (isLaughExpression(exactNorm)) return 'warm';
 
   if (exactNorm === 'hat' && nextTokenNorm && PRONOUN_OBJECT_SET.has(nextTokenNorm)) {
     return 'tense';
@@ -1618,6 +1476,12 @@ function deliveryAnalysis(physical, hasGhosts, pools) {
   };
 }
 
+/*
+ * v1 Production Physics Field:
+ * - Hostile/Dismissive commands ("get lost", "go away", "shut up") inject +0.75 tension.
+ * - Neutral greetings ("hey how are you") NEVER hallucinate anger from normal key-holds;
+ *   heavy force emboldens ink and thickens the bubble border without changing neutral affect to angry!
+ */
 function computePhysicsField(semantic, meaning, expression, delivery, structural, liwc, physical) {
   let warmth = semantic.vectors.warmth;
   let tension = semantic.vectors.tension;
@@ -1626,8 +1490,11 @@ function computePhysicsField(semantic, meaning, expression, delivery, structural
   if (meaning.cues.affirmation > 0 && heaviness < 0.3) {
     warmth = clamp01(Math.max(warmth, 0.65));
   }
+  if (meaning.cues.directiveDismissive > 0 && warmth < 0.4) {
+    tension = clamp01(Math.max(tension, 0.75));
+  }
   if (meaning.hasUrgency && warmth < 0.4) {
-    tension = clamp01(tension + 0.55);
+    tension = clamp01(tension + 0.58);
   }
   if (meaning.cues.apology > 0 && !meaning.isNegatedApology && warmth < 0.35) {
     const liwcBoost = liwc.highSelfFocus ? 0.08 : 0;
@@ -1640,15 +1507,15 @@ function computePhysicsField(semantic, meaning, expression, delivery, structural
   const avgDwell = physical.avgDwellMs || 0;
   const peakDwell = physical.peakDwellMs || avgDwell;
   const medItd = physical.medianItdMs || physical.avgFlightMs || 0;
+  const hThresh = activeHeavyDwellThreshold();
   let neuromotorState = 'baseline';
 
   if (semantic.dominant === 'unresolved' && !meaning.explicit) {
     if (medItd > 0 && medItd <= activeFastFlightThreshold() && avgDwell > 0 && avgDwell <= CONFIG.lightDwellMs && !delivery.edited && !delivery.hesitant) {
-      warmth = clamp01(warmth + 0.44);
+      warmth = clamp01(warmth + 0.42);
       neuromotorState = 'buoyant-flow';
-    } else if (avgDwell >= CONFIG.heavyDwellMs && (physical.burst || peakDwell >= 135 || (physical.qcd || 0) > 0.38)) {
-      tension = clamp01(tension + 0.52);
-      neuromotorState = 'high-pressure-tension';
+    } else if (avgDwell >= hThresh && (physical.burst || (state.isMobileMode && peakDwell >= 145))) {
+      neuromotorState = 'high-pressure-strike';
     } else if ((medItd >= activeSlowFlightThreshold() || delivery.hesitant) && liwc.highSelfFocus) {
       heaviness = clamp01(heaviness + 0.45);
       neuromotorState = 'fatigued-self-focus';
@@ -1664,7 +1531,7 @@ function computePhysicsField(semantic, meaning, expression, delivery, structural
     netVertical = semantic.dominant === 'warm' ? -warmth * 0.85 : heaviness * 0.85;
   } else {
     const liwcGravity = (liwc.highSelfFocus && warmth < 0.3 && (heaviness > 0 || delivery.hesitant)) ? 0.18 : 0;
-    netVertical += liwcGravity + (semantic.dominant === 'unresolved' && delivery.hesitant && !meaning.hasUrgency ? 0.26 : 0);
+    netVertical += liwcGravity + (semantic.dominant === 'unresolved' && delivery.hesitant && !meaning.hasUrgency && tension < 0.4 ? 0.22 : 0);
   }
 
   const lineTiltDeg = Math.max(-2.6, Math.min(2.8, netVertical * 2.35));
@@ -1673,10 +1540,12 @@ function computePhysicsField(semantic, meaning, expression, delivery, structural
   const slantDeg = tension >= 0.45 ? -8 : (delivery.rapid ? -4 : 0);
   const fadeRate = (heaviness >= 0.45 || (delivery.hesitant && warmth < 0.3)) ? 0.055 : 0;
 
-  // Bubble-level Force Border Scaling (1.5px calm -> up to 3.4px under heavy thumb/key force)
-  const effectiveForceMs = Math.max(avgDwell, peakDwell * 0.85);
-  const borderPx = effectiveForceMs >= CONFIG.heavyDwellMs
-    ? Math.min(3.5, Number((1.6 + ((effectiveForceMs - 85) / 95)).toFixed(2)))
+  const isHeavyForce = state.isMobileMode
+    ? (avgDwell >= hThresh || peakDwell >= hThresh + 20)
+    : (avgDwell >= hThresh);
+
+  const borderPx = isHeavyForce
+    ? Math.min(3.5, Number((1.8 + ((avgDwell - hThresh) / 70)).toFixed(2)))
     : 1.5;
 
   return {
@@ -1687,7 +1556,8 @@ function computePhysicsField(semantic, meaning, expression, delivery, structural
     slantDeg: slantDeg,
     fadeRate: fadeRate,
     borderPx: borderPx,
-    effectiveForceMs: Math.round(effectiveForceMs || 0),
+    isHeavyForce: isHeavyForce,
+    effectiveForceMs: Math.round(avgDwell || 0),
     neuromotorState: neuromotorState,
     effectiveWarmth: warmth,
     effectiveHeaviness: heaviness,
@@ -1741,8 +1611,11 @@ function familyPresentation(dominant, physics, semantic, meaning, expression, de
     else traces.push('Unresolved Affect');
   }
 
-  if (physical && (physical.peakDwellMs >= CONFIG.heavyDwellMs || physical.avgDwellMs >= CONFIG.heavyDwellMs)) {
-    traces.push('Heavy Force (' + Math.round(Math.max(physical.avgDwellMs || 0, physical.peakDwellMs || 0)) + 'ms)');
+  if (physics.isHeavyForce) {
+    const displayForce = state.isMobileMode
+      ? Math.round(Math.max(physical.avgDwellMs || 0, physical.peakDwellMs || 0))
+      : Math.round(physical.avgDwellMs || 0);
+    traces.push('Heavy Force (' + displayForce + 'ms)');
   }
 
   if (semantic.hasContrastivePivot && !hasArc) traces.push("VADER 'but' pivot");
@@ -1807,8 +1680,8 @@ let messages = [
     intensity: 1.3,
     caption: '☀️ Warmth ↗ · elongated · rapid delivery',
     delivery: { style: 'rapid', cues: ['rapid'] },
-    physics: { lineTiltDeg: -2.1, waveAmp: 0.75, jitterPx: 0, slantDeg: 0, fadeRate: 0, borderPx: 1.6 },
-    xrayText: '🔍 Ink X-Ray: Pace 84ms · Force 68ms avg / 74ms peak · Pause 0px · Edits 1.0x · Line Slant -2.1°',
+    physics: { lineTiltDeg: -2.1, waveAmp: 0.75, jitterPx: 0, slantDeg: 0, fadeRate: 0, borderPx: 1.5 },
+    xrayText: '🔍 Ink X-Ray: Pace 84ms · Force 72ms avg · Pause 0px · Edits 1.0x · Line Slant -2.1°',
     words: [
       { text: "The", weight: 500, fastGlide: true, heavyForce: false, punch: false, poolAfter: false, ghostType: null, isStretch: false },
       { text: "new", weight: 500, fastGlide: true, heavyForce: false, punch: false, poolAfter: false, ghostType: null, isStretch: false },
@@ -1825,10 +1698,10 @@ let messages = [
     tone: 'warm',
     vibeTone: 'warm',
     intensity: 1.35,
-    caption: '🌗 Arc: Heavy ↘ → Warmth ↗ · Heavy Force (132ms) · hesitant delivery',
+    caption: '🌗 Arc: Heavy ↘ → Warmth ↗ · hesitant delivery',
     delivery: { style: 'hesitant', cues: ['hesitant'] },
-    physics: { lineTiltDeg: -1.6, waveAmp: 0.7, jitterPx: 0, slantDeg: 0, fadeRate: 0, borderPx: 2.4 },
-    xrayText: '🔍 Ink X-Ray: Pace 112ms · Force 94ms avg / 132ms peak · Pause 14px (1.4s) · 2-Clause Trajectory Shift',
+    physics: { lineTiltDeg: -1.6, waveAmp: 0.7, jitterPx: 0, slantDeg: 0, fadeRate: 0, borderPx: 2.2 },
+    xrayText: '🔍 Ink X-Ray: Pace 112ms · Force 94ms avg / 138ms peak · Pause 14px (1.4s) · 2-Clause Trajectory Shift',
     words: [
       { text: "The", clauseIndex: 0, localTone: 'sigh', localPhysics: { lineTiltDeg: 2.4, waveAmp: 0, jitterPx: 0, slantDeg: 0, fadeRate: 0.05 } },
       { text: "server", clauseIndex: 0, localTone: 'sigh', localPhysics: { lineTiltDeg: 2.4, waveAmp: 0, jitterPx: 0, slantDeg: 0, fadeRate: 0.05 } },
@@ -1926,9 +1799,14 @@ function physicalAnalysis() {
   const itdStats = computeQuartileStats(state.keyTimes);
   const dwellStats = computeQuartileStats(state.dwellTimes);
 
-  const recentDwells = state.dwellTimes.slice(-4);
-  const recentDwellStats = computeQuartileStats(recentDwells);
-  const responsiveForceMs = Math.max(dwellStats.q3 || 0, recentDwellStats.q3 || 0, dwellStats.mean || 0);
+  // Mobile uses responsive recent-peak tracking so shaking/forceful thumb taps spike immediately;
+  // Desktop uses median/mean so a single stray 130ms key-hold doesn't false-trigger Heavy Force on every message!
+  let responsiveForceMs = dwellStats.median || dwellStats.mean || 0;
+  if (state.isMobileMode) {
+    const recentDwells = state.dwellTimes.slice(-4);
+    const recentDwellStats = computeQuartileStats(recentDwells);
+    responsiveForceMs = Math.max(dwellStats.q3 || 0, recentDwellStats.q3 || 0, dwellStats.mean || 0);
+  }
 
   const guarded = churn >= CONFIG.churnThreshold;
   const stare = state.stareMs >= CONFIG.stareThresholdMs;
@@ -2143,7 +2021,6 @@ function createBalloonDOM(msg, isPreview) {
   }
   balloon.className = [msg.style].concat(deliveryClasses).filter(Boolean).join(' ');
 
-  // Apply Bubble-Level Force Border Thickness if typed with heavy force
   if (msg.physics && msg.physics.borderPx && msg.physics.borderPx > 1.6) {
     balloon.style.borderWidth = msg.physics.borderPx + 'px';
   }
@@ -2227,7 +2104,6 @@ function createBalloonDOM(msg, isPreview) {
       if (w.weight) renderedWord.style.fontWeight = w.weight;
     }
 
-    // Apply distinct Forensic Speed vs. Force classes!
     if (w.fastGlide && !w.isStretch) renderedWord.classList.add('w-fast-glide');
     if (w.heavyForce) renderedWord.classList.add('w-heavy-force');
     if (w.poolAfter) renderedWord.classList.add('w-ink-pool');
@@ -2339,6 +2215,7 @@ function updateHUD() {
   const liwc = computeLiwcMetrics(inputBox.value);
   const spacing = pauseSpacing(true);
   const frantic = isRecentBackspaceBurstFrantic(performance.now());
+  const hThresh = activeHeavyDwellThreshold();
 
   const churnEl = byId('mChurn');
   const stareEl = byId('mStare');
@@ -2357,7 +2234,7 @@ function updateHUD() {
   }
   if (dwellEl) {
     dwellEl.textContent = p.avgDwellMs ? Math.round(p.avgDwellMs) + 'ms' : '—';
-    dwellEl.style.color = p.avgDwellMs >= CONFIG.heavyDwellMs ? '#fb7185' : '#38bdf8';
+    dwellEl.style.color = p.avgDwellMs >= hThresh ? '#fb7185' : '#38bdf8';
   }
   if (flightEl) {
     flightEl.textContent = p.medianItdMs ? Math.round(p.medianItdMs) + 'ms' : '—';
@@ -2605,7 +2482,6 @@ function onInput(e) {
 
     if (state.franticStreakActive) {
       triggerHaptic([50, 30, 80]);
-      playFranticScratchAcoustic();
       triggerPreviewCardShake();
     } else {
       triggerHaptic(32);
@@ -2618,6 +2494,7 @@ function onInput(e) {
 
   const isSwipeOrAutocomplete = Math.abs(charDiff) > 1 && delta < 45;
 
+  // Mobile Z-Axis Accelerometer Jolt -> Uncapped Force up to 300ms
   if (state.isMobileMode && state.recentMotionJolt > 0.06) {
     const syntheticDwell = Math.min(300, Math.max(55, Math.round(62 + state.recentMotionJolt * 45)));
     state.dwellTimes.push(syntheticDwell);
@@ -2712,13 +2589,11 @@ function onInput(e) {
       const prev = state.wordMeta[idx] || { weight: 450, fastGlide: false, heavyForce: false, peakForce: 0, punch: false, poolAfter: false };
       const lastDwell = state.dwellTimes.length ? state.dwellTimes[state.dwellTimes.length - 1] : 70;
       const wordPeakForce = Math.max(prev.peakForce || 0, lastDwell);
-      const isHeavyForce = wordPeakForce >= CONFIG.heavyDwellMs;
+      const hThresh = activeHeavyDwellThreshold();
+      const isHeavyForce = wordPeakForce >= hThresh;
       const isFastGlide = (!isSwipeOrAutocomplete && delta >= CONFIG.minHumanTapDeltaMs && delta < activeBurstThreshold()) || prev.fastGlide;
       const allCaps = isWordAllCaps(tokens[idx]);
 
-      // Forensic separation:
-      // - Heavy Force -> 900 weight + bottom pressure underline + ink halo
-      // - Fast Glide -> 550 sleek weight + tight letter spacing (-0.55px) + forward -11deg slant
       let computedWeight = 450;
       if (isHeavyForce || allCaps) computedWeight = 900;
       else if (isFastGlide) computedWeight = 550;
@@ -2739,6 +2614,15 @@ function onInput(e) {
   renderPreview();
 }
 
+function isNonLetterKey(e) {
+  const k = e.key || '';
+  const c = e.code || '';
+  if (k === ' ' || c === 'Space' || k === 'Enter' || k === 'Backspace' || k === 'Delete' || k === 'Shift' || k === 'Control' || k === 'Alt' || k === 'Meta' || k === 'Tab' || k === 'CapsLock') {
+    return true;
+  }
+  return k.length > 1;
+}
+
 function onKeydown(e) {
   const now = performance.now();
   const code = e.code || e.key;
@@ -2750,7 +2634,8 @@ function onKeydown(e) {
     badge.textContent = state.isMobileMode ? 'MOBILE THUMB MODE' : 'DESKTOP MODE';
   }
 
-  if (!isIme && !e.repeat && !state.activeKeyDowns[code]) {
+  // Only record key-down dwell start on actual printable character keys (ignores Space/Backspace/Shift holds!)
+  if (!isIme && !e.repeat && !isNonLetterKey(e) && !state.activeKeyDowns[code]) {
     state.activeKeyDowns[code] = now;
     if (state.lastKeyUpTime != null) {
       const flight = now - state.lastKeyUpTime;
@@ -2771,7 +2656,6 @@ function onKeydown(e) {
     if (isRecentBackspaceBurstFrantic(now)) {
       state.franticStreakActive = true;
       triggerHaptic([50, 30, 80]);
-      playFranticScratchAcoustic();
       triggerPreviewCardShake();
     } else {
       triggerHaptic(30);
@@ -2791,17 +2675,18 @@ function onKeyup(e) {
   if (downTime != null) {
     const dwell = now - downTime;
     delete state.activeKeyDowns[code];
-    if (dwell >= 18 && dwell < 800) {
+    // Cap desktop keystroke dwell at 220ms so long key-holds never create fake 700ms force spikes!
+    if (dwell >= 18 && dwell <= 220) {
       state.dwellTimes.push(dwell);
       if (state.dwellTimes.length > 60) state.dwellTimes.shift();
-      // Update active word's heavyForce immediately on desktop key release
       const tokens = tokenize(inputBox.value);
+      const hThresh = activeHeavyDwellThreshold();
       if (tokens.length > 0 && !endsWithSpace(inputBox.value)) {
         const idx = tokens.length - 1;
         const meta = state.wordMeta[idx];
         if (meta) {
           meta.peakForce = Math.max(meta.peakForce || 0, dwell);
-          if (meta.peakForce >= CONFIG.heavyDwellMs) {
+          if (meta.peakForce >= hThresh) {
             meta.heavyForce = true;
             meta.weight = 900;
           }
@@ -2825,7 +2710,7 @@ function onSendPointerUp(e) {
   if (state.sendPressTime != null) {
     const holdMs = performance.now() - state.sendPressTime;
     const pressureBonus = state.sendPressure > 0.45 ? 35 : 0;
-    if (holdMs >= 18 && holdMs < 800) {
+    if (holdMs >= 18 && holdMs <= 260) {
       state.dwellTimes.push(holdMs + pressureBonus);
       if (state.dwellTimes.length > 60) state.dwellTimes.shift();
     }
@@ -2845,9 +2730,6 @@ function sendNow() {
   const physical = physicalAnalysis();
   const structural = structuralAnalysis(tokenize(rawText), rawText);
   const pSpace = pauseSpacing(false);
-
-  // Play subtle emotion-matched Web Audio acoustic signature on Send
-  playSendAcoustic(draft.style);
 
   const paceStr = physical.medianItdMs ? Math.round(physical.medianItdMs) + 'ms' : 'steady';
   const avgForce = physical.meanDwellMs ? Math.round(physical.meanDwellMs) + 'ms avg' : 'normal';
@@ -2885,19 +2767,6 @@ function setSender(user) {
   byId('btnAlex').classList.toggle('active', user === 'Alex');
   byId('btnSam').classList.toggle('active', user === 'Sam');
   renderFeed();
-}
-
-function toggleSound() {
-  state.soundEnabled = !state.soundEnabled;
-  const btn = byId('soundBtn');
-  if (btn) {
-    btn.textContent = state.soundEnabled ? '🔊' : '🔇';
-    btn.classList.toggle('active-toggle', state.soundEnabled);
-  }
-  if (state.soundEnabled) {
-    playSendAcoustic('balloon-steady');
-  }
-  showToast(state.soundEnabled ? '🔊 Micro-acoustics enabled' : '🔇 Micro-acoustics muted');
 }
 
 function toggleHud() {
@@ -3085,7 +2954,6 @@ infoModal.addEventListener('click', function(e) {
   if (e.target === infoModal) infoModal.classList.remove('open');
 });
 
-byId('soundBtn').addEventListener('click', toggleSound);
 byId('hudBtn').addEventListener('click', toggleHud);
 byId('clearBtn').addEventListener('click', clearChat);
 byId('reportBtn').addEventListener('click', copyReport);
