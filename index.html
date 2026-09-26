@@ -82,37 +82,58 @@ body{
   word-break:break-word;
   cursor:pointer;
   overflow:hidden;
-  transition:transform .15s ease, box-shadow .15s ease;
+  transition:transform .15s ease, box-shadow .15s ease, border-width .15s ease;
 }
 .balloon-warm:active,.balloon-urgent:active,.balloon-whisper:active,.balloon-steady:active,.balloon-mixed:active{
   transform:scale(0.99);
 }
 
-/* 1. WARM / JOYFUL: Soft Golden-Hour Inner Radiance */
+/* 1. WARM / JOYFUL: Upbeat Golden Radiance + Floating Joy Sparks */
 .balloon-warm{
   background:
-    radial-gradient(circle at 50% 25%, rgba(251,191,36,0.22) 0%, transparent 70%),
+    radial-gradient(circle at 50% 25%, rgba(251,191,36,0.25) 0%, transparent 70%),
     linear-gradient(135deg, rgba(120,53,15,0.94) 0%, rgba(69,26,3,0.96) 55%, rgba(41,16,4,0.98) 100%);
   border:1.5px solid #fbbf24;
   border-radius:24px 24px 24px 8px;
-  padding:15px 18px 15px;
+  padding:15px 22px 15px 18px;
   color:#fef3c7;
   font-size:15px;
   font-weight:550;
-  line-height:1.78;
-  box-shadow:0 10px 28px -6px rgba(245,158,11,0.4), 0 0 18px rgba(251,191,36,0.2), inset 0 1px 2px rgba(254,243,199,0.4);
-  animation:warmAuraBreath 3.4s ease-in-out infinite alternate;
+  line-height:1.82;
+  box-shadow:0 10px 28px -6px rgba(245,158,11,0.42), 0 0 18px rgba(251,191,36,0.22), inset 0 1px 2px rgba(254,243,199,0.42);
+  animation:warmAuraBreath 2.2s ease-in-out infinite alternate;
 }
 .msg-wrap.mine .balloon-warm{border-radius:24px 24px 8px 24px}
 @keyframes warmAuraBreath{
   0%{
     border-color:#f59e0b;
-    box-shadow:0 10px 24px -6px rgba(245,158,11,0.32), 0 0 12px rgba(251,191,36,0.14), inset 0 1px 1px rgba(254,243,199,0.28);
+    box-shadow:0 10px 24px -6px rgba(245,158,11,0.32), 0 0 12px rgba(251,191,36,0.15), inset 0 1px 1px rgba(254,243,199,0.3);
   }
   100%{
     border-color:#fde68a;
-    box-shadow:0 12px 32px -4px rgba(245,158,11,0.52), 0 0 24px rgba(251,191,36,0.32), inset 0 1px 3px rgba(254,243,199,0.55);
+    box-shadow:0 12px 32px -4px rgba(245,158,11,0.55), 0 0 26px rgba(251,191,36,0.36), inset 0 1px 3px rgba(254,243,199,0.6);
   }
+}
+.spark-svg{
+  position:absolute;top:5px;right:7px;width:20px;height:28px;
+  pointer-events:none;
+  filter:drop-shadow(0 0 6px #fde047);
+}
+.spark-star-1{
+  transform-origin:center;
+  animation:sparkTwinkle1 1.35s ease-in-out infinite alternate;
+}
+.spark-star-2{
+  transform-origin:center;
+  animation:sparkTwinkle2 1.35s ease-in-out 0.45s infinite alternate;
+}
+@keyframes sparkTwinkle1{
+  0%{opacity:0.35;transform:translateY(1.5px) scale(0.8) rotate(-12deg)}
+  100%{opacity:1;transform:translateY(-2px) scale(1.15) rotate(12deg)}
+}
+@keyframes sparkTwinkle2{
+  0%{opacity:0.25;transform:translateY(1px) scale(0.75)}
+  100%{opacity:0.95;transform:translateY(-2.2px) scale(1.1)}
 }
 
 /* 2. ANGRY / TENSE: High-Voltage Crimson Cut Frame + Periodic Lightning Strike */
@@ -179,7 +200,7 @@ body{
   color:#e0e7ff;
   font-size:14px;
   font-weight:350;
-  letter-spacing:.4px;
+  letter-spacing:.7px;
   line-height:1.9;
   box-shadow:0 12px 32px -6px rgba(99,102,241,0.38), 0 0 20px rgba(129,140,248,0.18), inset 0 1px 2px rgba(199,210,254,0.22);
 }
@@ -254,7 +275,8 @@ body{
 .xray-pill.open{display:block}
 .xray-pill strong{color:#38bdf8}
 
-.delivery-rapid .w-token{letter-spacing:.5px;text-shadow:0 0 10px rgba(251,113,133,0.4)}
+/* Forensic Speed vs. Delivery Classes */
+.delivery-rapid .w-token{margin-right:4px}
 .delivery-hesitant .sentence-line{opacity:.92;filter:saturate(.88)}
 .delivery-edited .sentence-line{text-shadow:0 0 6px rgba(148,163,184,0.25)}
 .delivery-direct .sentence-line{letter-spacing:.12px}
@@ -275,37 +297,76 @@ body{
 }
 
 /* ============================================================
+   FORENSIC GRAPHOLOGY SEPARATION: SPEED (GLIDE) VS. FORCE (BLEED)
+   ============================================================ */
+
+/*
+ * A) FAST VELOCITY (.w-fast-glide):
+ * Forensic wrist-momentum writing: letters crowd closer together (-0.55px),
+ * words sit tighter together, and strokes lean forward (-11deg skewX)
+ * without artificial heavy ink-bleed.
+ */
+.w-fast-glide{
+  letter-spacing:-0.55px!important;
+  margin-right:3.8px!important;
+}
+.w-fast-glide .ink-char{
+  transform:skewX(-11deg);
+}
+
+/*
+ * B) HIGH AXIAL NIB FORCE (.w-heavy-force):
+ * Heavy nib pressure splits the pen tip and dumps ink into paper fibers:
+ * 900 ultra-bold weight, glowing ink-bleed halo, and a bottom pressure underline,
+ * while staying upright unless also typed fast!
+ */
+.w-heavy-force{
+  font-weight:900!important;
+  border-bottom:2px solid rgba(251,113,133,0.78);
+  padding-bottom:0.5px;
+  filter:drop-shadow(0 0 7px rgba(251,113,133,0.48));
+}
+.w-heavy-force .ink-char{
+  text-shadow:0 0 12px currentColor, 0 0 3px rgba(255,255,255,0.65)!important;
+}
+
+/* ============================================================
    DISTINCT EMOTION TYPOGRAPHY
    ============================================================ */
 
-/* 1. WARM / JOYFUL: Buoyant spring lift + soft golden letter bloom */
+/*
+ * 1. WARM / JOYFUL (1.35s Upbeat ~90 BPM Joyful Tempo):
+ * Words have a lively 2.6px buoyant hop + playful -1.8deg tilt, while
+ * individual letters softly bloom in sunlit gold!
+ */
 .w-token.tone-warm{
-  animation:warmJoySpring 2.2s cubic-bezier(0.34, 1.56, 0.64, 1) infinite alternate;
+  animation:warmJoySpring 1.35s cubic-bezier(0.34, 1.56, 0.64, 1) infinite alternate;
 }
 .w-token.tone-warm .ink-char{
   color:#fde68a;
-  text-shadow:0 0 8px rgba(251,191,36,0.4);
-  animation:warmLetterBloom 1.8s ease-in-out infinite alternate;
+  text-shadow:0 0 8px rgba(251,191,36,0.45);
+  animation:warmLetterBloom 1.15s ease-in-out infinite alternate;
 }
 @keyframes warmJoySpring{
-  0%{transform:translateY(0.4px) scale(0.99)}
-  100%{transform:translateY(-1.8px) scale(1.028)}
+  0%{transform:translateY(0.8px) scale(0.985) rotate(0.6deg)}
+  100%{transform:translateY(-2.7px) scale(1.04) rotate(-1.8deg)}
 }
 @keyframes warmLetterBloom{
   0%{
-    transform:translateY(0px);
+    transform:translateY(0.4px);
     color:#fde68a;
     text-shadow:0 0 6px rgba(251,191,36,0.3);
   }
   100%{
-    transform:translateY(-1.3px);
+    transform:translateY(-2.0px) scale(1.03);
     color:#fffbeb;
-    text-shadow:0 2px 12px rgba(251,191,36,0.85), 0 0 4px rgba(254,243,199,0.6);
+    text-shadow:0 3px 14px rgba(251,191,36,0.9), 0 0 5px rgba(254,243,199,0.75);
   }
 }
 
-/* 2. SAD / SIGH: Slow sinking ink bleed & fading opacity */
+/* 2. SAD / SIGH: Slow sinking ink bleed & wider separated letters */
 .w-token.tone-sigh{
+  letter-spacing:0.65px;
   animation:sighWordSink 3.6s ease-in-out infinite alternate;
 }
 .w-token.tone-sigh .ink-char{
@@ -336,8 +397,8 @@ body{
 .w-token.tone-unresolved .ink-char{color:inherit}
 
 .w-punch{
-  font-size:1.16em;
-  font-weight:900!important;
+  font-size:1.15em;
+  font-weight:850!important;
   color:#fff!important;
   text-shadow:0 0 14px rgba(255,255,255,0.55)!important;
 }
@@ -431,6 +492,18 @@ body{
   overflow-y:auto;
   overflow-x:hidden;
 }
+/* Physical Visual Micro-Shake when Frantic Backspace fires on mobile */
+.preview-card.preview-shake{
+  animation:franticCardShake 0.22s ease-in-out;
+  border-color:#fb7185;
+}
+@keyframes franticCardShake{
+  0%,100%{transform:translateX(0)}
+  25%{transform:translateX(-3.5px)}
+  50%{transform:translateX(3.5px)}
+  75%{transform:translateX(-2px)}
+}
+
 .preview-top{display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#cbd5e1;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;font-weight:700}
 .pulse-track{width:60px;height:5px;background:#1e1e2e;border-radius:99px;overflow:hidden}
 .pulse-fill{height:100%;width:40%;background:var(--indigo);transition:width .06s linear;box-shadow:0 0 8px var(--indigo)}
@@ -501,6 +574,7 @@ textarea::placeholder{color:#94a3b8}
   <div class="top-bar">
     <div><span class="brand">Resonance v1</span><span class="sub-brand">Living Ink Messenger · Tap Any Bubble for X-Ray</span></div>
     <div class="top-actions">
+      <button id="soundBtn" class="report-btn active-toggle" type="button" title="Toggle tactile micro-acoustics">🔊</button>
       <button id="infoBtn" class="report-btn" type="button" title="How Resonance works">ⓘ Guide</button>
       <button id="hudBtn" class="report-btn active-toggle" type="button" title="Show or hide telemetry bar">📊 HUD</button>
       <button id="clearBtn" class="report-btn" type="button" title="Clear chat feed">🗑️</button>
@@ -515,7 +589,7 @@ textarea::placeholder{color:#94a3b8}
   <div id="chatFeed" class="chat-feed" aria-live="polite"></div>
 
   <div class="composer" id="composerBar">
-    <div class="preview-card">
+    <div id="previewCard" class="preview-card">
       <div class="preview-top">
         <span id="previewTitle">Live Ink Preview</span><span id="modeBadge" style="font-size:7.5px;color:#38bdf8">READY</span>
         <div class="pulse-track"><div id="pulseFill" class="pulse-fill"></div></div>
@@ -560,15 +634,14 @@ textarea::placeholder{color:#94a3b8}
         <button id="closeModalBtn" class="close-modal-btn" type="button">Got it ✕</button>
       </div>
       <div class="guide-list">
+        <div class="guide-item"><strong>SPEED vs FORCE</strong> <b>Forensic Ink Physics:</b> Fast typing pulls letters closer together with a sleek <code>-11°</code> forward glide. Heavy force/pressure dumps <code>900</code>-weight ink with a bottom nib-underline and thickens the bubble border.</div>
         <div class="guide-item"><strong>CHURN</strong> <b>Second Thoughts:</b> <code>1.0x</code> means you typed straight through. Higher numbers mean you rewrote your thought multiple times.</div>
         <div class="guide-item"><strong>STARE</strong> <b>Lingering:</b> How many seconds you stared at the screen after typing before hitting Send.</div>
         <div class="guide-item"><strong>LIWC-I</strong> <b>Self-Focus:</b> The percentage of <i>"I, me, my"</i> words—showing how personal or inward-focused the message is.</div>
-        <div class="guide-item"><strong>FORCE</strong> <b>Impact &amp; Shake Force:</b> Measures key-hold pressure on desktop and physical thumb-strike / hand-shake G-force on mobile (up to <code>300ms</code>).</div>
-        <div class="guide-item"><strong>MED-ITD</strong> <b>Typical Pace:</b> Your median rhythm between letters in milliseconds.</div>
-        <div class="guide-item"><strong>Q1-FAST</strong> <b>Burst Speed:</b> Your fastest 25% of taps—fast bursts add energetic forward slant.</div>
-        <div class="guide-item"><strong>PAUSE</strong> <b>Breathing Room:</b> When you hit Space and pause to think, a physical gap and ink drop grow between words.</div>
-        <div class="guide-item"><strong>BKSP</strong> <b>Erase Energy:</b> <b>Calm</b> leaves a neat, readable line-through; <b>Frantic</b> furiously scratches the word out with haptic vibration.</div>
-        <div class="guide-item"><strong>💡 Tip</strong> <b>Tap Any Sent Bubble:</b> Tap any message in the chat to open its <b>Ink X-Ray</b> and see how it was typed.</div>
+        <div class="guide-item"><strong>FORCE</strong> <b>Nib Pressure:</b> Measures key-hold duration on desktop and physical thumb-impact / shake G-force on mobile (up to <code>300ms</code>).</div>
+        <div class="guide-item"><strong>MED-ITD &amp; Q1</strong> <b>Pace &amp; Burst:</b> Your typical rhythm (<code>MED-ITD</code>) and fastest 25% of taps (<code>Q1-FAST</code>).</div>
+        <div class="guide-item"><strong>PAUSE</strong> <b>Breathing Room:</b> Hit Space and pause to grow a physical gap and ink pool between words.</div>
+        <div class="guide-item"><strong>BKSP</strong> <b>Erase Energy:</b> <b>Calm</b> leaves a neat single strike-through; <b>Frantic</b> furiously scratches the word out with a tactile scratch sound &amp; shake.</div>
       </div>
     </div>
   </div>
@@ -681,6 +754,7 @@ const chatFeed = byId('chatFeed');
 const inputBox = byId('inputBox');
 const previewStage = byId('previewStage');
 const previewTitle = byId('previewTitle');
+const previewCard = byId('previewCard');
 const pulseFill = byId('pulseFill');
 const toast = byId('toast');
 
@@ -688,6 +762,7 @@ const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 
 
 const state = {
   isMobileMode: isTouchDevice,
+  soundEnabled: true,
   hudCollapsed: false,
   totalKeys: 0,
   keyTimes: [],
@@ -698,6 +773,7 @@ const state = {
   lastZAccel: null,
   recentMotionJolt: 0,
   lastHapticTime: 0,
+  lastScratchSoundTime: 0,
   backspaceTimes: [],
   lastBackspaceActionTime: null,
   franticStreakActive: false,
@@ -726,10 +802,143 @@ const state = {
   reportHistory: []
 };
 
-/*
- * Direct Hardware Haptic Engine:
- * Throttled by 40ms so rapid events don't cancel each other out on Android LRA motors.
- */
+/* ============================================================
+   WEB AUDIO API MICRO-ACOUSTICS ENGINE (Zero External MP3s)
+   Synthesizes subtle, physical 70ms-240ms sounds for Send & Erase
+   ============================================================ */
+let audioCtx = null;
+function getAudioCtx() {
+  if (!state.soundEnabled) return null;
+  try {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    return audioCtx;
+  } catch (e) {
+    return null;
+  }
+}
+
+function playSendAcoustic(toneStyle) {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  try {
+    const now = ctx.currentTime;
+    if (toneStyle === 'balloon-warm') {
+      // Soft, warm 2-note wooden marimba/kalimba harmonic bloom (C5 -> E5)
+      [523.25, 659.25].forEach(function(freq, idx) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        const start = now + idx * 0.065;
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.001, start);
+        gain.gain.exponentialRampToValueAtTime(0.11, start + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0008, start + 0.19);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.2);
+      });
+    } else if (toneStyle === 'balloon-whisper') {
+      // Low, muted felt-piano exhale sigh (A3 -> F3 slow pitch droop)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(164.8, now + 0.26);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.09, now + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.28);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.29);
+    } else if (toneStyle === 'balloon-urgent') {
+      // Crisp 110ms high-voltage electric spark snap + tight sub-bass punch
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(155, now);
+      osc.frequency.exponentialRampToValueAtTime(42, now + 0.11);
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.13);
+    } else if (toneStyle === 'balloon-mixed') {
+      // Conflicted Arc: Low indigo note resolving into warm upper fifth (D4 -> A4)
+      [293.66, 440.0].forEach(function(freq, idx) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        const start = now + idx * 0.08;
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.001, start);
+        gain.gain.exponentialRampToValueAtTime(0.09, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.21);
+      });
+    } else {
+      // Neutral / Steady: Clean 65ms fountain-pen-nib tactile click
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(380, now);
+      osc.frequency.exponentialRampToValueAtTime(190, now + 0.055);
+      gain.gain.setValueAtTime(0.07, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.065);
+    }
+  } catch (e) {}
+}
+
+function playFranticScratchAcoustic() {
+  const nowPerf = performance.now();
+  if (nowPerf - state.lastScratchSoundTime < 90) return;
+  state.lastScratchSoundTime = nowPerf;
+
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  try {
+    // 40ms filtered noise + low thump = tactile pen-scratching-paper feedback
+    const now = ctx.currentTime;
+    const bufferSize = Math.floor(ctx.sampleRate * 0.045);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.4));
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1100, now);
+    filter.Q.setValueAtTime(2.2, now);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    noise.start(now);
+  } catch (e) {}
+}
+
 function triggerHaptic(pattern, forceImmediate) {
   try {
     if (!navigator.vibrate) return;
@@ -738,6 +947,13 @@ function triggerHaptic(pattern, forceImmediate) {
     state.lastHapticTime = now;
     navigator.vibrate(pattern);
   } catch (e) {}
+}
+
+function triggerPreviewCardShake() {
+  if (!previewCard) return;
+  previewCard.classList.remove('preview-shake');
+  void previewCard.offsetWidth;
+  previewCard.classList.add('preview-shake');
 }
 
 function activeBurstThreshold() {
@@ -1422,6 +1638,7 @@ function computePhysicsField(semantic, meaning, expression, delivery, structural
   }
 
   const avgDwell = physical.avgDwellMs || 0;
+  const peakDwell = physical.peakDwellMs || avgDwell;
   const medItd = physical.medianItdMs || physical.avgFlightMs || 0;
   let neuromotorState = 'baseline';
 
@@ -1429,7 +1646,7 @@ function computePhysicsField(semantic, meaning, expression, delivery, structural
     if (medItd > 0 && medItd <= activeFastFlightThreshold() && avgDwell > 0 && avgDwell <= CONFIG.lightDwellMs && !delivery.edited && !delivery.hesitant) {
       warmth = clamp01(warmth + 0.44);
       neuromotorState = 'buoyant-flow';
-    } else if (avgDwell >= CONFIG.heavyDwellMs && (physical.burst || avgDwell >= 135 || (physical.qcd || 0) > 0.38)) {
+    } else if (avgDwell >= CONFIG.heavyDwellMs && (physical.burst || peakDwell >= 135 || (physical.qcd || 0) > 0.38)) {
       tension = clamp01(tension + 0.52);
       neuromotorState = 'high-pressure-tension';
     } else if ((medItd >= activeSlowFlightThreshold() || delivery.hesitant) && liwc.highSelfFocus) {
@@ -1456,6 +1673,12 @@ function computePhysicsField(semantic, meaning, expression, delivery, structural
   const slantDeg = tension >= 0.45 ? -8 : (delivery.rapid ? -4 : 0);
   const fadeRate = (heaviness >= 0.45 || (delivery.hesitant && warmth < 0.3)) ? 0.055 : 0;
 
+  // Bubble-level Force Border Scaling (1.5px calm -> up to 3.4px under heavy thumb/key force)
+  const effectiveForceMs = Math.max(avgDwell, peakDwell * 0.85);
+  const borderPx = effectiveForceMs >= CONFIG.heavyDwellMs
+    ? Math.min(3.5, Number((1.6 + ((effectiveForceMs - 85) / 95)).toFixed(2)))
+    : 1.5;
+
   return {
     intensity: intensity,
     lineTiltDeg: lineTiltDeg,
@@ -1463,6 +1686,8 @@ function computePhysicsField(semantic, meaning, expression, delivery, structural
     jitterPx: jitterPx,
     slantDeg: slantDeg,
     fadeRate: fadeRate,
+    borderPx: borderPx,
+    effectiveForceMs: Math.round(effectiveForceMs || 0),
     neuromotorState: neuromotorState,
     effectiveWarmth: warmth,
     effectiveHeaviness: heaviness,
@@ -1476,7 +1701,7 @@ function pauseToPx(pauseMs) {
   return Math.min(60, Math.max(6, Math.round(pauseMs / 100)));
 }
 
-function familyPresentation(dominant, physics, semantic, meaning, expression, delivery, liwc) {
+function familyPresentation(dominant, physics, semantic, meaning, expression, delivery, liwc, physical) {
   const traces = [];
   const hasArc = semantic.clauseArc && semantic.clauseArc.hasConflictingArc;
 
@@ -1514,6 +1739,10 @@ function familyPresentation(dominant, physics, semantic, meaning, expression, de
   if (!traces.length) {
     if (physics.neuromotorState !== 'baseline') traces.push('Neuromotor: ' + physics.neuromotorState);
     else traces.push('Unresolved Affect');
+  }
+
+  if (physical && (physical.peakDwellMs >= CONFIG.heavyDwellMs || physical.avgDwellMs >= CONFIG.heavyDwellMs)) {
+    traces.push('Heavy Force (' + Math.round(Math.max(physical.avgDwellMs || 0, physical.peakDwellMs || 0)) + 'ms)');
   }
 
   if (semantic.hasContrastivePivot && !hasArc) traces.push("VADER 'but' pivot");
@@ -1576,18 +1805,18 @@ let messages = [
     tone: 'warm',
     vibeTone: 'warm',
     intensity: 1.3,
-    caption: '☀️ Warmth ↗ · elongated',
-    delivery: { style: 'direct', cues: ['direct'] },
-    physics: { lineTiltDeg: -2.1, waveAmp: 0.75, jitterPx: 0, slantDeg: 0, fadeRate: 0 },
-    xrayText: '🔍 Ink X-Ray: Pace 84ms · Force 68ms · Pause 0px · Edits 1.0x · Whole-Line Climb -2.1°',
+    caption: '☀️ Warmth ↗ · elongated · rapid delivery',
+    delivery: { style: 'rapid', cues: ['rapid'] },
+    physics: { lineTiltDeg: -2.1, waveAmp: 0.75, jitterPx: 0, slantDeg: 0, fadeRate: 0, borderPx: 1.6 },
+    xrayText: '🔍 Ink X-Ray: Pace 84ms · Force 68ms avg / 74ms peak · Pause 0px · Edits 1.0x · Line Slant -2.1°',
     words: [
-      { text: "The", weight: 500, slant: 0, punch: false, poolAfter: false, ghostType: null, isStretch: false },
-      { text: "new", weight: 500, slant: 0, punch: false, poolAfter: false, ghostType: null, isStretch: false },
-      { text: "build", weight: 550, slant: 0, punch: false, poolAfter: false, ghostType: null, isStretch: false },
-      { text: "is", weight: 500, slant: 0, punch: false, poolAfter: false, ghostType: null, isStretch: false },
-      { text: "working", weight: 600, slant: -3, punch: false, poolAfter: false, ghostType: null, isStretch: false },
-      { text: "soooo", weight: 700, slant: -4, punch: false, poolAfter: false, ghostType: null, isStretch: true },
-      { text: "great! ✨", weight: 700, slant: -4, punch: true, poolAfter: false, ghostType: null, isStretch: false }
+      { text: "The", weight: 500, fastGlide: true, heavyForce: false, punch: false, poolAfter: false, ghostType: null, isStretch: false },
+      { text: "new", weight: 500, fastGlide: true, heavyForce: false, punch: false, poolAfter: false, ghostType: null, isStretch: false },
+      { text: "build", weight: 550, fastGlide: false, heavyForce: false, punch: false, poolAfter: false, ghostType: null, isStretch: false },
+      { text: "is", weight: 500, fastGlide: false, heavyForce: false, punch: false, poolAfter: false, ghostType: null, isStretch: false },
+      { text: "working", weight: 600, fastGlide: true, heavyForce: false, punch: false, poolAfter: false, ghostType: null, isStretch: false },
+      { text: "soooo", weight: 700, fastGlide: false, heavyForce: false, punch: false, poolAfter: false, ghostType: null, isStretch: true },
+      { text: "great! ✨", weight: 700, fastGlide: true, heavyForce: false, punch: true, poolAfter: false, ghostType: null, isStretch: false }
     ]
   },
   {
@@ -1596,10 +1825,10 @@ let messages = [
     tone: 'warm',
     vibeTone: 'warm',
     intensity: 1.35,
-    caption: '🌗 Arc: Heavy ↘ → Warmth ↗ · hesitant delivery',
+    caption: '🌗 Arc: Heavy ↘ → Warmth ↗ · Heavy Force (132ms) · hesitant delivery',
     delivery: { style: 'hesitant', cues: ['hesitant'] },
-    physics: { lineTiltDeg: -1.6, waveAmp: 0.7, jitterPx: 0, slantDeg: 0, fadeRate: 0 },
-    xrayText: '🔍 Ink X-Ray: Pace 112ms · Force 76ms · Pause 14px (1.4s) · 2-Clause Trajectory Shift',
+    physics: { lineTiltDeg: -1.6, waveAmp: 0.7, jitterPx: 0, slantDeg: 0, fadeRate: 0, borderPx: 2.4 },
+    xrayText: '🔍 Ink X-Ray: Pace 112ms · Force 94ms avg / 132ms peak · Pause 14px (1.4s) · 2-Clause Trajectory Shift',
     words: [
       { text: "The", clauseIndex: 0, localTone: 'sigh', localPhysics: { lineTiltDeg: 2.4, waveAmp: 0, jitterPx: 0, slantDeg: 0, fadeRate: 0.05 } },
       { text: "server", clauseIndex: 0, localTone: 'sigh', localPhysics: { lineTiltDeg: 2.4, waveAmp: 0, jitterPx: 0, slantDeg: 0, fadeRate: 0.05 } },
@@ -1607,9 +1836,9 @@ let messages = [
       { text: "down...", clauseIndex: 0, poolAfter: true, pausePx: 14, localTone: 'sigh', localPhysics: { lineTiltDeg: 2.4, waveAmp: 0, jitterPx: 0, slantDeg: 0, fadeRate: 0.05 } },
       { text: "but", clauseIndex: 1, localTone: 'warm', localPhysics: { lineTiltDeg: -2.1, waveAmp: 0.75, jitterPx: 0, slantDeg: 0, fadeRate: 0 } },
       { text: "everything", clauseIndex: 1, localTone: 'warm', localPhysics: { lineTiltDeg: -2.1, waveAmp: 0.75, jitterPx: 0, slantDeg: 0, fadeRate: 0 } },
-      { text: "runs", clauseIndex: 1, localTone: 'warm', localPhysics: { lineTiltDeg: -2.1, waveAmp: 0.75, jitterPx: 0, slantDeg: 0, fadeRate: 0 } },
-      { text: "smoothly", clauseIndex: 1, localTone: 'warm', localPhysics: { lineTiltDeg: -2.1, waveAmp: 0.75, jitterPx: 0, slantDeg: 0, fadeRate: 0 } },
-      { text: "now!", clauseIndex: 1, punch: true, localTone: 'warm', localPhysics: { lineTiltDeg: -2.1, waveAmp: 0.75, jitterPx: 0, slantDeg: 0, fadeRate: 0 } }
+      { text: "runs", clauseIndex: 1, fastGlide: true, localTone: 'warm', localPhysics: { lineTiltDeg: -2.1, waveAmp: 0.75, jitterPx: 0, slantDeg: 0, fadeRate: 0 } },
+      { text: "smoothly", clauseIndex: 1, fastGlide: true, localTone: 'warm', localPhysics: { lineTiltDeg: -2.1, waveAmp: 0.75, jitterPx: 0, slantDeg: 0, fadeRate: 0 } },
+      { text: "now!", clauseIndex: 1, heavyForce: true, punch: true, localTone: 'warm', localPhysics: { lineTiltDeg: -2.1, waveAmp: 0.75, jitterPx: 0, slantDeg: 0, fadeRate: 0 } }
     ]
   }
 ];
@@ -1697,7 +1926,6 @@ function physicalAnalysis() {
   const itdStats = computeQuartileStats(state.keyTimes);
   const dwellStats = computeQuartileStats(state.dwellTimes);
 
-  // Recent 4-tap window so shaking/forceful tapping spikes the HUD immediately instead of being hidden by earlier calm taps!
   const recentDwells = state.dwellTimes.slice(-4);
   const recentDwellStats = computeQuartileStats(recentDwells);
   const responsiveForceMs = Math.max(dwellStats.q3 || 0, recentDwellStats.q3 || 0, dwellStats.mean || 0);
@@ -1736,6 +1964,7 @@ function physicalAnalysis() {
     rapidRun: maxRapidRun,
     longestPauseMs: longestPauseMs,
     avgDwellMs: responsiveForceMs,
+    meanDwellMs: dwellStats.mean,
     peakDwellMs: dwellStats.max,
     avgFlightMs: itdStats.median || itdStats.mean,
     rhythmCv: itdStats.cv
@@ -1787,7 +2016,7 @@ function evaluateTextSignal(raw, customPhysical, hasGhosts, pools) {
   if (delivery.style !== 'direct') routeParts.push('deliv:' + delivery.style);
   const reason = routeParts.length ? routeParts.join(' + ') : 'unresolved-direct';
 
-  const presentation = familyPresentation(family, physics, semantic, meaning, expression, delivery, liwc);
+  const presentation = familyPresentation(family, physics, semantic, meaning, expression, delivery, liwc, physical);
 
   return Object.assign({}, presentation, {
     family: family,
@@ -1843,7 +2072,7 @@ function renderInkWord(text, tone, intensity, stretch, physics, wordIndex) {
 
   const wIdxRaw = wordIndex || 0;
   if (resolvedTone === 'warm') {
-    c.style.animationDelay = ((wIdxRaw % 4) * 0.28).toFixed(2) + 's';
+    c.style.animationDelay = ((wIdxRaw % 4) * 0.16).toFixed(2) + 's';
   } else if (resolvedTone === 'sigh') {
     c.style.animationDelay = ((wIdxRaw % 4) * 0.4).toFixed(2) + 's';
   }
@@ -1856,7 +2085,7 @@ function renderInkWord(text, tone, intensity, stretch, physics, wordIndex) {
     s.className = stretch ? 'stretch-char ink-char' : 'ink-char';
     s.textContent = graphemes[i];
     if (resolvedTone === 'warm') {
-      s.style.animationDelay = ((wIdxRaw * 0.18) + (i * 0.11)).toFixed(2) + 's';
+      s.style.animationDelay = ((wIdxRaw * 0.12) + (i * 0.075)).toFixed(2) + 's';
     } else if (fadeRate > 0) {
       s.style.opacity = Math.max(0.45, 1 - (wIdxRaw * 0.08) - (i % 10) * fadeRate).toFixed(2);
     }
@@ -1884,6 +2113,27 @@ function createLightningSVG() {
   return svg;
 }
 
+function createWarmSparksSVG() {
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('class', 'spark-svg');
+  svg.setAttribute('viewBox', '0 0 24 32');
+
+  const star1 = document.createElementNS(svgNS, 'path');
+  star1.setAttribute('class', 'spark-star-1');
+  star1.setAttribute('d', 'M14 2 Q14 9 21 9 Q14 9 14 16 Q14 9 7 9 Q14 9 14 2 Z');
+  star1.setAttribute('fill', '#fef08a');
+
+  const star2 = document.createElementNS(svgNS, 'path');
+  star2.setAttribute('class', 'spark-star-2');
+  star2.setAttribute('d', 'M7 18 Q7 22 11 22 Q7 22 7 26 Q7 22 3 22 Q7 22 7 18 Z');
+  star2.setAttribute('fill', '#fde047');
+
+  svg.appendChild(star1);
+  svg.appendChild(star2);
+  return svg;
+}
+
 function createBalloonDOM(msg, isPreview) {
   const balloon = document.createElement('div');
   const deliveryCues = (msg.delivery && Array.isArray(msg.delivery.cues)) ? msg.delivery.cues : [];
@@ -1893,8 +2143,15 @@ function createBalloonDOM(msg, isPreview) {
   }
   balloon.className = [msg.style].concat(deliveryClasses).filter(Boolean).join(' ');
 
+  // Apply Bubble-Level Force Border Thickness if typed with heavy force
+  if (msg.physics && msg.physics.borderPx && msg.physics.borderPx > 1.6) {
+    balloon.style.borderWidth = msg.physics.borderPx + 'px';
+  }
+
   if (msg.style === 'balloon-urgent') {
     balloon.appendChild(createLightningSVG());
+  } else if (msg.style === 'balloon-warm') {
+    balloon.appendChild(createWarmSparksSVG());
   }
 
   const line = document.createElement('span');
@@ -1964,13 +2221,17 @@ function createBalloonDOM(msg, isPreview) {
     let renderedWord;
     if (w.isStretch) {
       renderedWord = renderStretchedWord(w.text, wordTone, msg.intensity || 1, wordPhysics, currentWordIdx);
-      if (w.poolAfter) renderedWord.classList.add('w-ink-pool');
     } else {
       renderedWord = renderInkWord(w.text, wordTone, msg.intensity || 1, false, wordPhysics, currentWordIdx);
       if (w.punch) renderedWord.classList.add('w-punch');
-      if (w.poolAfter) renderedWord.classList.add('w-ink-pool');
       if (w.weight) renderedWord.style.fontWeight = w.weight;
     }
+
+    // Apply distinct Forensic Speed vs. Force classes!
+    if (w.fastGlide && !w.isStretch) renderedWord.classList.add('w-fast-glide');
+    if (w.heavyForce) renderedWord.classList.add('w-heavy-force');
+    if (w.poolAfter) renderedWord.classList.add('w-ink-pool');
+
     activeClauseContainer.appendChild(renderedWord);
 
     if (w.pausePx > 0) {
@@ -2011,7 +2272,7 @@ function buildDraftMessage(includeLiveWaiting) {
       });
     }
     if (i < tokens.length) {
-      const m = state.wordMeta[i] || { weight: 450, slant: 0, punch: false, poolAfter: false };
+      const m = state.wordMeta[i] || { weight: 450, fastGlide: false, heavyForce: false, peakForce: 0, punch: false, poolAfter: false };
       const isLast = i === tokens.length - 1;
       const nextSlotHasGhost = Boolean(state.ghostsAtSlot[i + 1] && state.ghostsAtSlot[i + 1].length);
 
@@ -2041,7 +2302,9 @@ function buildDraftMessage(includeLiveWaiting) {
       finalWords.push({
         text: tokens[i],
         weight: m.weight,
-        slant: m.slant,
+        fastGlide: Boolean(m.fastGlide),
+        heavyForce: Boolean(m.heavyForce),
+        peakForce: m.peakForce || 0,
         punch: m.punch,
         poolAfter: Boolean(m.poolAfter || lockedMs >= CONFIG.poolDelayMs || livePooling),
         ghostType: null,
@@ -2340,9 +2603,10 @@ function onInput(e) {
       }
     }
 
-    // SYNCHRONOUS HAPTIC FEEDBACK ON ERASE (Never blocked by Chrome timer policies!)
     if (state.franticStreakActive) {
       triggerHaptic([50, 30, 80]);
+      playFranticScratchAcoustic();
+      triggerPreviewCardShake();
     } else {
       triggerHaptic(32);
     }
@@ -2354,7 +2618,6 @@ function onInput(e) {
 
   const isSwipeOrAutocomplete = Math.abs(charDiff) > 1 && delta < 45;
 
-  // Uncapped Mobile Force Formula (scales up to 300ms when shaking/tapping forcefully!)
   if (state.isMobileMode && state.recentMotionJolt > 0.06) {
     const syntheticDwell = Math.min(300, Math.max(55, Math.round(62 + state.recentMotionJolt * 45)));
     state.dwellTimes.push(syntheticDwell);
@@ -2408,13 +2671,10 @@ function onInput(e) {
       const lockedGap = Math.max(state.pauseGapsBySlot[slot] || 0, boundaryPauseMs);
       state.pauseGapsBySlot[slot] = lockedGap;
 
-      const meta = state.wordMeta[slot] || { weight: 450, slant: 0, punch: false, poolAfter: false };
-      state.wordMeta[slot] = {
-        weight: meta.weight,
-        slant: meta.slant,
-        punch: meta.punch,
+      const meta = state.wordMeta[slot] || { weight: 450, fastGlide: false, heavyForce: false, peakForce: 0, punch: false, poolAfter: false };
+      state.wordMeta[slot] = Object.assign({}, meta, {
         poolAfter: Boolean(meta.poolAfter || lockedGap >= CONFIG.poolDelayMs)
-      };
+      });
     }
     state.prevTokenCount = tokens.length;
   }
@@ -2449,15 +2709,27 @@ function onInput(e) {
       state.spacePauseAnchorTime = null;
       state.livePendingPauseMs = 0;
       const idx = tokens.length - 1;
-      const prev = state.wordMeta[idx] || { weight: 450, slant: 0, punch: false, poolAfter: false };
-      const lastDwell = state.dwellTimes.length ? state.dwellTimes[state.dwellTimes.length - 1] : 75;
-      const heavyPress = lastDwell >= CONFIG.heavyDwellMs;
-      const fastTap = !isSwipeOrAutocomplete && delta >= CONFIG.minHumanTapDeltaMs && delta < activeBurstThreshold();
+      const prev = state.wordMeta[idx] || { weight: 450, fastGlide: false, heavyForce: false, peakForce: 0, punch: false, poolAfter: false };
+      const lastDwell = state.dwellTimes.length ? state.dwellTimes[state.dwellTimes.length - 1] : 70;
+      const wordPeakForce = Math.max(prev.peakForce || 0, lastDwell);
+      const isHeavyForce = wordPeakForce >= CONFIG.heavyDwellMs;
+      const isFastGlide = (!isSwipeOrAutocomplete && delta >= CONFIG.minHumanTapDeltaMs && delta < activeBurstThreshold()) || prev.fastGlide;
+      const allCaps = isWordAllCaps(tokens[idx]);
+
+      // Forensic separation:
+      // - Heavy Force -> 900 weight + bottom pressure underline + ink halo
+      // - Fast Glide -> 550 sleek weight + tight letter spacing (-0.55px) + forward -11deg slant
+      let computedWeight = 450;
+      if (isHeavyForce || allCaps) computedWeight = 900;
+      else if (isFastGlide) computedWeight = 550;
+      else if (pct < 35) computedWeight = 350;
 
       state.wordMeta[idx] = {
-        weight: (pct > 72 || heavyPress || isWordAllCaps(tokens[idx])) ? 800 : pct < 35 ? 300 : 450,
-        slant: (pct > 72 || heavyPress) ? -10 : 0,
-        punch: (fastTap && tokens[idx].length >= 4) || isWordAllCaps(tokens[idx]) || prev.punch,
+        weight: computedWeight,
+        fastGlide: isFastGlide,
+        heavyForce: isHeavyForce,
+        peakForce: wordPeakForce,
+        punch: allCaps || prev.punch,
         poolAfter: prev.poolAfter
       };
       state.lastNonSpaceInputTime = now;
@@ -2499,6 +2771,8 @@ function onKeydown(e) {
     if (isRecentBackspaceBurstFrantic(now)) {
       state.franticStreakActive = true;
       triggerHaptic([50, 30, 80]);
+      playFranticScratchAcoustic();
+      triggerPreviewCardShake();
     } else {
       triggerHaptic(30);
     }
@@ -2520,10 +2794,23 @@ function onKeyup(e) {
     if (dwell >= 18 && dwell < 800) {
       state.dwellTimes.push(dwell);
       if (state.dwellTimes.length > 60) state.dwellTimes.shift();
+      // Update active word's heavyForce immediately on desktop key release
+      const tokens = tokenize(inputBox.value);
+      if (tokens.length > 0 && !endsWithSpace(inputBox.value)) {
+        const idx = tokens.length - 1;
+        const meta = state.wordMeta[idx];
+        if (meta) {
+          meta.peakForce = Math.max(meta.peakForce || 0, dwell);
+          if (meta.peakForce >= CONFIG.heavyDwellMs) {
+            meta.heavyForce = true;
+            meta.weight = 900;
+          }
+        }
+      }
     }
   }
   state.lastKeyUpTime = now;
-  updateHUD();
+  renderPreview();
 }
 
 function onSendPointerDown(e) {
@@ -2559,10 +2846,14 @@ function sendNow() {
   const structural = structuralAnalysis(tokenize(rawText), rawText);
   const pSpace = pauseSpacing(false);
 
+  // Play subtle emotion-matched Web Audio acoustic signature on Send
+  playSendAcoustic(draft.style);
+
   const paceStr = physical.medianItdMs ? Math.round(physical.medianItdMs) + 'ms' : 'steady';
-  const forceStr = physical.avgDwellMs ? Math.round(physical.avgDwellMs) + 'ms' : 'normal';
+  const avgForce = physical.meanDwellMs ? Math.round(physical.meanDwellMs) + 'ms avg' : 'normal';
+  const peakForce = physical.peakDwellMs ? Math.round(physical.peakDwellMs) + 'ms peak' : 'normal';
   const tiltStr = draft.physics ? (draft.physics.lineTiltDeg > 0 ? '+' : '') + draft.physics.lineTiltDeg.toFixed(1) + '°' : '0°';
-  const xrayText = '🔍 Ink X-Ray: Pace ' + paceStr + ' · Force ' + forceStr + ' · Pause ' + pSpace + 'px · Edits ' + physical.churn.toFixed(1) + 'x · Line Slant ' + tiltStr;
+  const xrayText = '🔍 Ink X-Ray: Pace ' + paceStr + ' · Force ' + avgForce + ' / ' + peakForce + ' · Pause ' + pSpace + 'px · Edits ' + physical.churn.toFixed(1) + 'x · Line Slant ' + tiltStr;
 
   const snapshot = {
     text: rawText,
@@ -2596,6 +2887,19 @@ function setSender(user) {
   renderFeed();
 }
 
+function toggleSound() {
+  state.soundEnabled = !state.soundEnabled;
+  const btn = byId('soundBtn');
+  if (btn) {
+    btn.textContent = state.soundEnabled ? '🔊' : '🔇';
+    btn.classList.toggle('active-toggle', state.soundEnabled);
+  }
+  if (state.soundEnabled) {
+    playSendAcoustic('balloon-steady');
+  }
+  showToast(state.soundEnabled ? '🔊 Micro-acoustics enabled' : '🔇 Micro-acoustics muted');
+}
+
 function toggleHud() {
   state.hudCollapsed = !state.hudCollapsed;
   const hud = byId('hudContainer');
@@ -2619,12 +2923,12 @@ function formatReportEntry(entry, index) {
   const sem = draft.semantic || { dominant: 'unresolved', senticValence: 0, confidence: 0, vectors: { warmth: 0, tension: 0, heaviness: 0 }, hits: [] };
   const liwc = draft.liwc || { pct: 0, firstPersonCount: 0 };
   const ev = (draft.expression && draft.expression.vectors) ? draft.expression.vectors : { elongation: 0, uppercase: 0, punctuation: 0, repetition: 0, emoji: 0 };
-  const phys = draft.physics || { lineTiltDeg: 0, waveAmp: 0, jitterPx: 0, slantDeg: 0, fadeRate: 0, neuromotorState: 'baseline' };
+  const phys = draft.physics || { lineTiltDeg: 0, waveAmp: 0, jitterPx: 0, slantDeg: 0, fadeRate: 0, borderPx: 1.5, neuromotorState: 'baseline' };
   const route = draft.reason || 'unresolved-direct';
   const q1Text = Number.isFinite(p.q1ItdMs) ? Math.round(p.q1ItdMs) + 'ms' : 'N/A';
   const medText = p.medianItdMs ? Math.round(p.medianItdMs) + 'ms' : 'N/A';
   const q3Text = p.q3ItdMs ? Math.round(p.q3ItdMs) + 'ms' : 'N/A';
-  const dwellText = p.avgDwellMs ? Math.round(p.avgDwellMs) + 'ms' : 'N/A';
+  const dwellText = p.avgDwellMs ? Math.round(p.avgDwellMs) + 'ms (peak: ' + Math.round(p.peakDwellMs || p.avgDwellMs) + 'ms)' : 'N/A';
   const time = entry.timestamp
     ? new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     : 'session';
@@ -2660,7 +2964,7 @@ function formatReportEntry(entry, index) {
     '- **2. SenticNet & VADER Affect:** dominant=`' + draft.family + '` · senticValence=`' + (sem.senticValence || 0) + '` · warmth=`' + (phys.effectiveWarmth || sem.vectors.warmth).toFixed(2) + '` · tension=`' + (phys.effectiveTension || sem.vectors.tension).toFixed(2) + '` · heaviness=`' + (phys.effectiveHeaviness || sem.vectors.heaviness).toFixed(2) + '`',
     '- **3. LIWC Self-Focus Index:** `' + liwc.pct + '%` (`' + liwc.firstPersonCount + '` first-person singular pronouns)',
     '- **4. Expression Field (VADER Heuristics):** style=`' + ((draft.expression && draft.expression.style) || 'plain') + '` · elongation=`' + ev.elongation.toFixed(2) + '` · caps=`' + ev.uppercase.toFixed(2) + '` · punct=`' + ev.punctuation.toFixed(2) + '`',
-    '- **5. Physics Output:** wholeLineTilt=`' + (phys.lineTiltDeg || 0).toFixed(2) + 'deg` · waveAmp=`' + phys.waveAmp.toFixed(2) + 'px` · jitter=`' + phys.jitterPx.toFixed(2) + 'px`',
+    '- **5. Physics Output:** wholeLineTilt=`' + (phys.lineTiltDeg || 0).toFixed(2) + 'deg` · borderThickness=`' + (phys.borderPx || 1.5) + 'px` · waveAmp=`' + phys.waveAmp.toFixed(2) + 'px` · jitter=`' + phys.jitterPx.toFixed(2) + 'px`',
     '- **Lexical Affect Signals:** ' + semanticHits,
     '- **Emoji Signals:** ' + emojiHits,
     '',
@@ -2781,6 +3085,7 @@ infoModal.addEventListener('click', function(e) {
   if (e.target === infoModal) infoModal.classList.remove('open');
 });
 
+byId('soundBtn').addEventListener('click', toggleSound);
 byId('hudBtn').addEventListener('click', toggleHud);
 byId('clearBtn').addEventListener('click', clearChat);
 byId('reportBtn').addEventListener('click', copyReport);
