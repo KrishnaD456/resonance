@@ -1,0 +1,48 @@
+name: Deploy Resonance (Prod + Test)
+
+on:
+  push:
+    branches: [ main, test ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull PROD code from main branch into root folder
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: _site
+
+      - name: Pull TEST code from test branch into /test subfolder
+        uses: actions/checkout@v4
+        with:
+          ref: test
+          path: _site/test
+
+      - name: Clean git folders
+        run: |
+          rm -rf _site/.git _site/.github
+          rm -rf _site/test/.git _site/test/.github
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
