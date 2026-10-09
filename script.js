@@ -2540,23 +2540,7 @@ function formatReportEntry(entry, index) {
 }
 
 function makeReport() {
-  const currentText = inputBox.value.trim();
   const entries = state.reportHistory.slice();
-
-  if (currentText) {
-    const draft = buildDraftMessage(true);
-    entries.push({
-      text: inputBox.value,
-      sender: activeSender,
-      decision: draft,
-      physical: physicalAnalysis(),
-      structural: structuralAnalysis(tokenize(inputBox.value), inputBox.value),
-      stareMs: state.stareMs,
-      pauseSpacing: pauseSpacing(true),
-      totalKeys: state.totalKeys,
-      timestamp: new Date().toISOString()
-    });
-  }
 
   if (!entries.length) {
     return [
@@ -2570,7 +2554,7 @@ function makeReport() {
   const header = [
     '### Resonance v1 Signal Field Diagnostic Report',
     '- **Conversation Messages:** ' + entries.length,
-    '- **Report Scope:** Entire Resonance session history' + (currentText ? ' + current live draft' : ''),
+    '- **Report Scope:** Entire committed conversation history',
     '',
     '## Conversation Transcript + Signal Field Telemetry'
   ].join('\n');
