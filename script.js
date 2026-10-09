@@ -1,5 +1,35 @@
 'use strict';
 
+/**
+ * ============================================================================
+ * RESONANCE v1 - LIVING INK MESSENGER
+ * Architecture: High-Performance Single-Bundle Modular Engine
+ *
+ * TABLE OF CONTENTS & DOMAIN HELPER NAMESPACES:
+ *  1. CONFIGURATION & LEXICONS
+ *  2. DOM ELEMENTS & RUNTIME STATE
+ *  3. HARDWARE & BIOMETRIC THRESHOLDS       -> DeviceHelper
+ *  4. TEXT PROCESSING & TOKEN UTILITIES      -> TextHelper
+ *  5. NLP & EMOTION SCORING ENGINE           -> SentimentHelper
+ *  6. PHYSICAL BIOMETRICS & TELEMETRY ENGINE -> BiometricsHelper
+ *  7. INK VISUALIZATION & BUBBLE RENDERING   -> (Rendering primitives)
+ *  8. FEED RENDERING & DELETION TRACES       -> UIHelper
+ *  9. HARDWARE SENSORS & INPUT EVENT LISTENERS
+ * 10. UI CONTROLS, DIAGNOSTICS & INIT        -> DiagnosticHelper / Helper
+ *
+ * CALLING CONVENTION:
+ * You can call methods directly, via domain helpers (e.g. TextHelper.tokenize),
+ * or via the master registry (e.g. Helper.text.tokenize, Helper.device.triggerHaptic).
+ *
+ * TIP: In VS Code, press Ctrl + K, then Ctrl + 0 to collapse all regions,
+ * or click the fold arrows in the gutter to navigate each module.
+ * ============================================================================
+ */
+
+// ============================================================================
+//#region 1. CONFIGURATION & LEXICONS
+// ============================================================================
+
 const CONFIG = Object.freeze({
   churnThreshold: 2.2,
   stareThresholdMs: 3000,
@@ -95,6 +125,11 @@ const EMOTION_ROOTS = Object.freeze({
     'pain','pained','regret','ashamed','guilty','disappointed','disappoint','unloved','ungrateful'
   ])
 });
+//#endregion 1. CONFIGURATION & LEXICONS
+
+// ============================================================================
+//#region 2. DOM ELEMENTS & RUNTIME STATE
+// ============================================================================
 
 function byId(id) {
   return document.getElementById(id);
@@ -161,6 +196,11 @@ const state = {
   reportSnapshot: null,
   reportHistory: []
 };
+//#endregion 2. DOM ELEMENTS & RUNTIME STATE
+
+// ============================================================================
+//#region 3. HARDWARE & BIOMETRIC THRESHOLDS
+// ============================================================================
 
 function triggerHaptic(pattern, forceImmediate) {
   try {
@@ -207,6 +247,22 @@ function activeHeavyDwellThreshold() {
 function clamp01(v) {
   return Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
 }
+
+const DeviceHelper = Object.freeze({
+  triggerHaptic,
+  triggerPreviewCardShake,
+  activeBurstThreshold,
+  activePauseThreshold,
+  activeFastFlightThreshold,
+  activeSlowFlightThreshold,
+  activeHeavyDwellThreshold,
+  clamp01
+});
+//#endregion 3. HARDWARE & BIOMETRIC THRESHOLDS
+
+// ============================================================================
+//#region 4. TEXT PROCESSING & TOKEN UTILITIES
+// ============================================================================
 
 function splitGraphemes(str) {
   const s = String(str || '');
@@ -373,6 +429,32 @@ function computeLiwcMetrics(rawOrTokens) {
     highSelfFocus: ratio >= 0.20 && count >= 1
   };
 }
+
+const TextHelper = Object.freeze({
+  splitGraphemes,
+  tokenize,
+  expandSubTokens,
+  normalizeToken,
+  normalizeSentence,
+  collapseRepeatedLetters,
+  semanticRootCandidates,
+  semanticSemanticRoot,
+  endsWithSpace,
+  endsWithSentencePunct,
+  isWordAllCaps,
+  editDistanceAtMostOne,
+  isAutocorrectExpansion,
+  findEmojiSignals,
+  isNegationOperator,
+  isIntensifierOperator,
+  isDampenerOperator,
+  computeLiwcMetrics
+});
+//#endregion 4. TEXT PROCESSING & TOKEN UTILITIES
+
+// ============================================================================
+//#region 5. NLP & EMOTION SCORING ENGINE
+// ============================================================================
 
 function isTokenNegated(subTokens, index, fullSentenceLower) {
   if (/\b(nothing|nthng|nobody|no one)\b.*\b(wouldnt|woulndnt|would not|wont|cant)\b/.test(fullSentenceLower)) {
@@ -824,6 +906,22 @@ function expressionAnalysis(tokens, raw, structural, semantic) {
   return { style: style, elongated: elongated, uppercase: uppercase, repeated: repeated, emphaticPunct: emphaticPunct, punctuation: punctuation, emoji: emoji, vectors: vectors };
 }
 
+const SentimentHelper = Object.freeze({
+  isTokenNegated,
+  isLaughExpression,
+  matchEmotionFamily,
+  analyzeClauses,
+  semanticAnalysis,
+  meaningAnalysis,
+  expressionAnalysis,
+  countRepeatedWords
+});
+//#endregion 5. NLP & EMOTION SCORING ENGINE
+
+// ============================================================================
+//#region 6. PHYSICAL BIOMETRICS & TELEMETRY ENGINE
+// ============================================================================
+
 function deliveryAnalysis(physical, hasGhosts, pools) {
   const pThresh = activePauseThreshold();
   const cues = [];
@@ -1243,6 +1341,24 @@ function pauseSpacing(includeLive) {
   return pauseToPx(Math.max(p.longestPauseMs, live));
 }
 
+const BiometricsHelper = Object.freeze({
+  deliveryAnalysis,
+  computePhysicsField,
+  pauseToPx,
+  familyPresentation,
+  hasLetterStretch,
+  uppercaseRatio,
+  structuralAnalysis,
+  computeQuartileStats,
+  physicalAnalysis,
+  pauseSpacing
+});
+//#endregion 6. PHYSICAL BIOMETRICS & TELEMETRY ENGINE
+
+// ============================================================================
+//#region 7. INK VISUALIZATION & BUBBLE RENDERING
+// ============================================================================
+
 function evaluateTextSignal(raw, customPhysical, hasGhosts, pools) {
   const tokens = tokenize(raw);
   const physical = customPhysical || physicalAnalysis();
@@ -1648,6 +1764,11 @@ function renderPreview() {
   previewStage.replaceChildren(createBalloonDOM(draft, true));
   updateHUD();
 }
+//#endregion 7. INK VISUALIZATION & BUBBLE RENDERING
+
+// ============================================================================
+//#region 8. FEED RENDERING & DELETION TRACES
+// ============================================================================
 
 function renderFeed() {
   const frag = document.createDocumentFragment();
@@ -1817,6 +1938,24 @@ function commitDeletionTracesNow() {
   state.prevTokenCount = tokens.length;
   renderPreview();
 }
+
+const UIHelper = Object.freeze({
+  createBalloonDOM,
+  buildDraftMessage,
+  renderInkWord,
+  renderStretchedWord,
+  updateHUD,
+  renderPreview,
+  renderFeed,
+  resetDraftState,
+  startStareClock,
+  commitDeletionTracesNow
+});
+//#endregion 8. FEED RENDERING & DELETION TRACES
+
+// ============================================================================
+//#region 9. HARDWARE SENSORS & INPUT EVENT LISTENERS
+// ============================================================================
 
 function onDeviceMotion(e) {
   const acc = e.acceleration || e.accelerationIncludingGravity;
@@ -2152,6 +2291,11 @@ function setSender(user) {
   byId('btnSam').classList.toggle('active', user === 'Sam');
   renderFeed();
 }
+//#endregion 9. HARDWARE SENSORS & INPUT EVENT LISTENERS
+
+// ============================================================================
+//#region 10. UI CONTROLS, DIAGNOSTICS & INITIALIZATION
+// ============================================================================
 
 function toggleHud() {
   state.hudCollapsed = !state.hudCollapsed;
@@ -2301,6 +2445,26 @@ function showToast(msg) {
   }, 1800);
 }
 
+const DiagnosticHelper = Object.freeze({
+  formatReportEntry,
+  makeReport,
+  copyReport,
+  showToast,
+  toggleHud,
+  clearChat,
+  setSender
+});
+
+// Master Unified Namespace (Access everything via Helper.<module>.<method>)
+const Helper = Object.freeze({
+  device: DeviceHelper,
+  text: TextHelper,
+  sentiment: SentimentHelper,
+  biometrics: BiometricsHelper,
+  ui: UIHelper,
+  diagnostic: DiagnosticHelper
+});
+
 if (window.visualViewport) {
   const syncViewport = function() {
     const shell = byId('phoneShell');
@@ -2346,3 +2510,4 @@ byId('btnSam').addEventListener('click', function() { setSender('Sam'); });
 
 renderFeed();
 startStareClock();
+//#endregion 10. UI CONTROLS, DIAGNOSTICS & INITIALIZATION
