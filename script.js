@@ -1765,14 +1765,30 @@ function updateHUD() {
 
   if (churnEl) churnEl.textContent = p.churn.toFixed(1) + 'x';
   if (stareEl) {
-    stareEl.textContent = (state.stareMs / 1000).toFixed(1) + 's';
     const hasText = Boolean(inputBox.value.trim());
     if (hasText && !state.isKeyboardOpen) {
-      stareEl.style.color = '#64748b';
+      stareEl.textContent = (state.stareMs / 1000).toFixed(1) + 's ⏸';
+      stareEl.style.color = '#94a3b8';
       stareEl.title = 'Pen down (stare timer paused)';
     } else {
+      stareEl.textContent = (state.stareMs / 1000).toFixed(1) + 's';
       stareEl.style.color = '#38bdf8';
       stareEl.title = 'Active typing hesitation';
+    }
+  }
+
+  const modeBadge = byId('modeBadge');
+  if (modeBadge) {
+    const hasText = Boolean(inputBox.value.trim());
+    if (hasText && !state.isKeyboardOpen) {
+      modeBadge.textContent = 'PEN DOWN (PAUSED)';
+      modeBadge.style.color = '#fbbf24';
+    } else if (hasText && state.isKeyboardOpen) {
+      modeBadge.textContent = state.isMobileMode ? 'KEYBOARD ACTIVE' : 'TYPING ACTIVE';
+      modeBadge.style.color = '#38bdf8';
+    } else {
+      modeBadge.textContent = state.isMobileMode ? 'MOBILE THUMB MODE' : 'READY';
+      modeBadge.style.color = '#38bdf8';
     }
   }
   if (liwcEl) {
