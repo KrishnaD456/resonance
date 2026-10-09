@@ -179,10 +179,16 @@ const state = {
   firstKeyTime: null,
   lastNonSpaceInputTime: null,
   spacePauseAnchorTime: null,
+  accumulatedSpacePauseMs: 0,
+  accumulatedWordHoldMs: 0,
   lastInputLength: 0,
   sendPressTime: null,
   sendPressure: 0,
   stareMs: 0,
+  isKeyboardOpen: false,
+  accumulatedStareMs: 0,
+  lastActiveKeyboardTime: null,
+  keyboardDismissals: 0,
   maxBurstMs: Infinity,
   prevTokenCount: 0,
   peakWordsBySlot: [],
@@ -1654,21 +1660,52 @@ function buildDraftMessage(includeLiveWaiting) {
 
       const lockedMs = nextSlotHasGhost ? 0 : (state.pauseGapsBySlot[i] || state.lockedPauseBySlot[i] || 0);
 
-      const liveBoundaryMs = (allowLive && isLast && trailingSpace && state.spacePauseAnchorTime != null)
-        ? Math.max(0, performance.now() - state.spacePauseAnchorTime)
-        : 0;
+      let liveBoundaryMs = 0;
+      if (isLast && trailingSpace) {
+        if (state.isKeyboardOpen && state.spacePauseAnchorTime != null) {
+          liveBoundaryMs = state.accumulatedSpacePauseMs + Math.max(0, performance.now() - state.spacePauseAnchorTime);
+        } else {
+          liveBoundaryMs = state.accumulatedSpacePauseMs;
+        }
+      }
 
-      const liveWordHoldMs = (allowLive && isLast && !trailingSpace && state.lastNonSpaceInputTime != null)
-        ? Math.max(0, performance.now() - state.lastNonSpaceInputTime)
-        : 0;
+      let liveWordHoldMs = 0;
+      if (isLast && !trailingSpace) {
+        if (state.isKeyboardOpen && state.lastNonSpaceInputTime != null) {
+          liveWordHoldMs = state.accumulatedWordHoldMs + Math.max(0, performance.now() - state.lastNonSpaceInputTime);
+        } else {
+          liveWordHoldMs = state.accumulatedWordHoldMs;
+        }
+      }
 
-      const pauseMs = Math.max(lockedMs, liveBoundaryMs);
-      const effectivePauseMs = pauseMs >= pThresh ? pauseMs : 0;
-      const pausePx = pauseToPx(effectivePauseMs);
+      let effectivePauseMs = 0;
+      let pausePx = 0;
+      let hasLingeringPool = false;
+
+      if (allowLive) {
+        const pauseMs = Math.max(lockedMs, liveBoundaryMs);
+        effectivePauseMs = pauseMs >= pThresh ? pauseMs : 0;
+        pausePx = pauseToPx(effectivePauseMs);
+        hasLingeringPool = (liveWordHoldMs >= CONFIG.poolDelayMs || liveBoundaryMs >= CONFIG.poolDelayMs);
+      } else {
+        // Sent message mode (Hybrid Approach):
+        // Preserve authentic ink pooling and clamped breathing room without causing empty mobile line wraps
+        if (isLast && (trailingSpace || liveWordHoldMs >= CONFIG.poolDelayMs)) {
+          const terminalPauseMs = Math.max(liveBoundaryMs, liveWordHoldMs);
+          hasLingeringPool = terminalPauseMs >= CONFIG.poolDelayMs;
+          if (trailingSpace && terminalPauseMs >= pThresh) {
+            pausePx = Math.min(10, Math.max(6, pauseToPx(terminalPauseMs)));
+          }
+        } else {
+          effectivePauseMs = lockedMs >= pThresh ? lockedMs : 0;
+          pausePx = pauseToPx(effectivePauseMs);
+        }
+      }
+
       const liveWaiting = allowLive && isLast && trailingSpace && liveBoundaryMs >= pThresh;
-      const livePooling = allowLive && isLast && (liveWordHoldMs >= CONFIG.poolDelayMs || liveBoundaryMs >= CONFIG.poolDelayMs);
+      const livePooling = hasLingeringPool;
 
-      if (livePooling && !state.hapticPoolFiredForSlot[i]) {
+      if (allowLive && livePooling && !state.hapticPoolFiredForSlot[i]) {
         state.hapticPoolFiredForSlot[i] = true;
         triggerHaptic(28);
       }
@@ -1727,7 +1764,17 @@ function updateHUD() {
   const bkspEl = byId('mBksp');
 
   if (churnEl) churnEl.textContent = p.churn.toFixed(1) + 'x';
-  if (stareEl) stareEl.textContent = (state.stareMs / 1000).toFixed(1) + 's';
+  if (stareEl) {
+    stareEl.textContent = (state.stareMs / 1000).toFixed(1) + 's';
+    const hasText = Boolean(inputBox.value.trim());
+    if (hasText && !state.isKeyboardOpen) {
+      stareEl.style.color = '#64748b';
+      stareEl.title = 'Pen down (stare timer paused)';
+    } else {
+      stareEl.style.color = '#38bdf8';
+      stareEl.title = 'Active typing hesitation';
+    }
+  }
   if (liwcEl) {
     liwcEl.textContent = liwc.pct + '%';
     liwcEl.style.color = liwc.highSelfFocus ? '#fbbf24' : '#38bdf8';
@@ -1828,6 +1875,11 @@ function resetDraftState() {
   state.sendPressTime = null;
   state.sendPressure = 0;
   state.stareMs = 0;
+  state.accumulatedStareMs = 0;
+  state.lastActiveKeyboardTime = null;
+  state.accumulatedSpacePauseMs = 0;
+  state.accumulatedWordHoldMs = 0;
+  state.keyboardDismissals = 0;
   state.maxBurstMs = Infinity;
   state.prevTokenCount = 0;
   state.peakWordsBySlot = [];
@@ -1838,25 +1890,102 @@ function resetDraftState() {
   state.livePendingPauseMs = 0;
 }
 
+let maxObservedViewportHeight = (window.visualViewport && window.visualViewport.height) || window.innerHeight || 800;
+
+function isVirtualKeyboardOpen() {
+  const isInputFocused = (document.activeElement === inputBox);
+  if (!isInputFocused) return false;
+
+  const currentHeight = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+
+  // On touch/mobile devices or when visualViewport contracts significantly:
+  if (state.isMobileMode || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0)) {
+    return currentHeight < (maxObservedViewportHeight * 0.80);
+  }
+
+  // On desktop browser: focused input with active window focus
+  return document.hasFocus();
+}
+
+function evaluateKeyboardState() {
+  const currentHeight = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  const isInputFocused = (document.activeElement === inputBox);
+
+  // When input is unfocused or keyboard is closed, track the uncontracted baseline
+  if (!isInputFocused) {
+    maxObservedViewportHeight = Math.max(maxObservedViewportHeight, currentHeight);
+  }
+
+  const isNowOpen = isVirtualKeyboardOpen();
+  const wasOpen = state.isKeyboardOpen;
+  const now = performance.now();
+
+  if (wasOpen && !isNowOpen) {
+    // Transition: KEYBOARD DOWN ("Pen Down")
+    if (state.lastActiveKeyboardTime != null) {
+      state.accumulatedStareMs += Math.max(0, now - state.lastActiveKeyboardTime);
+      state.lastActiveKeyboardTime = null;
+    }
+    if (state.spacePauseAnchorTime != null) {
+      state.accumulatedSpacePauseMs += Math.max(0, now - state.spacePauseAnchorTime);
+      state.spacePauseAnchorTime = null;
+    }
+    if (state.lastNonSpaceInputTime != null && !endsWithSpace(inputBox.value)) {
+      state.accumulatedWordHoldMs += Math.max(0, now - state.lastNonSpaceInputTime);
+      state.lastNonSpaceInputTime = null;
+    }
+    state.keyboardDismissals++;
+  } else if (!wasOpen && isNowOpen) {
+    // Transition: KEYBOARD UP ("Pen Resumed")
+    state.lastActiveKeyboardTime = now;
+    if (endsWithSpace(inputBox.value)) {
+      state.spacePauseAnchorTime = now;
+    } else {
+      state.lastNonSpaceInputTime = now;
+    }
+  }
+
+  state.isKeyboardOpen = isNowOpen;
+  updateHUD();
+}
+
 function startStareClock() {
   clearInterval(state.stareTimer);
 
   state.stareTimer = setInterval(function() {
+    evaluateKeyboardState();
+
     const raw = inputBox.value;
     if (!raw.trim() || state.lastInputTime == null) {
+      state.accumulatedStareMs = 0;
+      state.lastActiveKeyboardTime = null;
       state.stareMs = 0;
       state.livePendingPauseMs = 0;
+      state.accumulatedSpacePauseMs = 0;
       updateHUD();
       return;
     }
 
     const now = performance.now();
-    state.stareMs = now - state.lastInputTime;
 
-    if (endsWithSpace(raw) && state.spacePauseAnchorTime != null) {
-      state.livePendingPauseMs = Math.max(0, now - state.spacePauseAnchorTime);
+    // Accumulate stare time only while keyboard is active
+    if (state.isKeyboardOpen && state.lastActiveKeyboardTime != null) {
+      const activeDelta = Math.max(0, now - state.lastActiveKeyboardTime);
+      state.stareMs = state.accumulatedStareMs + activeDelta;
+    } else {
+      // Pen Down: Frozen at accumulated value
+      state.stareMs = state.accumulatedStareMs;
+    }
+
+    if (endsWithSpace(raw)) {
+      if (state.isKeyboardOpen && state.spacePauseAnchorTime != null) {
+        state.livePendingPauseMs = state.accumulatedSpacePauseMs + Math.max(0, now - state.spacePauseAnchorTime);
+      } else {
+        state.livePendingPauseMs = state.accumulatedSpacePauseMs;
+      }
     } else {
       state.livePendingPauseMs = 0;
+      state.accumulatedSpacePauseMs = 0;
     }
 
     renderPreview();
@@ -1975,6 +2104,11 @@ function onInput(e) {
   const delta = state.lastInputTime == null ? 150 : now - state.lastInputTime;
   const previousSpaceAnchor = state.spacePauseAnchorTime;
   state.lastInputTime = now;
+  state.accumulatedStareMs = 0;
+  state.stareMs = 0;
+  if (state.isKeyboardOpen) {
+    state.lastActiveKeyboardTime = now;
+  }
 
   const inputType = (e && e.inputType) ? e.inputType : '';
   const isDeletion = charDiff < 0;
@@ -2104,9 +2238,12 @@ function onInput(e) {
     if (endsWithSpace(input)) {
       if (!isDeletion && state.spacePauseAnchorTime == null) {
         state.spacePauseAnchorTime = now;
+        state.accumulatedSpacePauseMs = 0;
       }
     } else {
       state.spacePauseAnchorTime = null;
+      state.accumulatedSpacePauseMs = 0;
+      state.accumulatedWordHoldMs = 0;
       state.livePendingPauseMs = 0;
       const idx = tokens.length - 1;
       const prev = state.wordMeta[idx] || { weight: 450, fastGlide: false, heavyForce: false, peakForce: 0, punch: false, poolAfter: false };
@@ -2249,6 +2386,13 @@ function sendNow() {
   clearTimeout(state.deletionCheckTimer);
   commitDeletionTracesNow();
 
+  // Finalize active stare duration before committing snapshot
+  if (state.isKeyboardOpen && state.lastActiveKeyboardTime != null) {
+    state.accumulatedStareMs += Math.max(0, performance.now() - state.lastActiveKeyboardTime);
+    state.lastActiveKeyboardTime = null;
+  }
+  state.stareMs = state.accumulatedStareMs;
+
   const draft = buildDraftMessage(false);
   const physical = physicalAnalysis();
   const structural = structuralAnalysis(tokenize(rawText), rawText);
@@ -2267,6 +2411,8 @@ function sendNow() {
     physical: physical,
     structural: structural,
     stareMs: state.stareMs,
+    netActiveStareMs: state.stareMs,
+    keyboardDismissals: state.keyboardDismissals || 0,
     pauseSpacing: pSpace,
     totalKeys: state.totalKeys,
     keyTimes: state.keyTimes.slice(),
@@ -2371,7 +2517,7 @@ function formatReportEntry(entry, index) {
     '- **ITD Quartiles (Q1 / Median / Q3):** `' + q1Text + ' / ' + medText + ' / ' + q3Text + '`',
     '- **Quartile Dispersion (QCD):** `' + Number(p.qcd || 0).toFixed(2) + '`',
     '- **Edit Churn Ratio:** `' + Number(p.churn || 0).toFixed(1) + 'x`',
-    '- **Post-Type Stare Hesitation:** `' + ((entry.stareMs || 0) / 1000).toFixed(1) + 's`',
+    '- **Post-Type Stare Hesitation:** `' + ((entry.stareMs || 0) / 1000).toFixed(1) + 's`' + ((entry.keyboardDismissals && entry.keyboardDismissals > 0) ? ' (' + entry.keyboardDismissals + ' pen-down pauses)' : ''),
     '- **Longest Word Pause:** `' + Math.round(p.longestPauseMs || 0) + 'ms` (`' + Number(entry.pauseSpacing || 0) + 'px`)',
     '- **Active Signal Route:** `' + route + '`.'
   ].join('\n');
@@ -2472,10 +2618,24 @@ if (window.visualViewport) {
       shell.style.height = window.visualViewport.height + 'px';
       chatFeed.scrollTop = chatFeed.scrollHeight;
     }
+    evaluateKeyboardState();
   };
   window.visualViewport.addEventListener('resize', syncViewport);
   window.visualViewport.addEventListener('scroll', syncViewport);
 }
+
+window.addEventListener('resize', evaluateKeyboardState);
+window.addEventListener('orientationchange', function() {
+  setTimeout(function() {
+    maxObservedViewportHeight = (window.visualViewport && window.visualViewport.height) || window.innerHeight || 800;
+    evaluateKeyboardState();
+  }, 120);
+});
+document.addEventListener('visibilitychange', evaluateKeyboardState);
+window.addEventListener('focus', evaluateKeyboardState);
+window.addEventListener('blur', evaluateKeyboardState);
+inputBox.addEventListener('focus', evaluateKeyboardState);
+inputBox.addEventListener('blur', evaluateKeyboardState);
 
 if (window.DeviceMotionEvent) {
   window.addEventListener('devicemotion', onDeviceMotion, true);
