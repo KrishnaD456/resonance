@@ -736,6 +736,18 @@ const previewCard = byId('previewCard');
 const pulseFill = byId('pulseFill');
 const toast = byId('toast');
 
+// ============================================================
+// TEST ENVIRONMENT BADGE
+// ============================================================
+if (window.location.pathname.includes('/test')) {
+  const topBar = document.querySelector('.top-bar');
+  const brand = document.querySelector('.brand');
+  
+  if (brand) brand.textContent = 'Resonance v1 [TEST]';
+  if (topBar) topBar.style.borderBottomColor = '#fbbf24'; // Gold / var(--amber)
+}
+// ============================================================
+
 const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
 const state = {
