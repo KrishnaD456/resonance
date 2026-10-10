@@ -1,5 +1,13 @@
 'use strict';
 
+                                                                    /**
+ * DEVELOPMENT & STORY HISTORY:
+ * See DEVELOPMENT_LOG.md for architectural decision records.
+ * Active Story Traceability:
+ *  - [Story #13]: Android Virtual Keyboard Lifecycle & "Pen Down" Engine
+ *  - [Story #14]: Self-Hosted Variable Ink Typography & CSS Axis Binding
+ */
+
 /**
  * ============================================================================
  * RESONANCE v1 - LIVING INK MESSENGER
@@ -106,8 +114,8 @@ const NATURAL_DOUBLE_ENDINGS = new Set([
 
 const EMOTION_ROOTS = Object.freeze({
   warm: new Set([
-    'happy','happier','happiest','glad','love','loved','loving','yay','excited','exciting','joy','joyful',
-    'good','great','awesome','nice','sweet','fun','thank','thanks',
+    'happy','happier','happiest','glad','love','loved','loving','lovely','loveliest','yay','excited','exciting','joy','joyful',
+    'good','great','awesome','nice','sweet','fun','thank','thanks','wow','woah',
     'grateful','proud','relieved','relief','haha','lol','hehe','lmao','aha','blessed','thrilled','smooth','smoothly','wonderful','amazing'
   ]),
   tense: new Set([
@@ -197,6 +205,8 @@ const state = {
   pauseGapsBySlot: {},
   lockedPauseBySlot: {},
   livePendingPauseMs: 0,
+  lastPreviewRenderedText: null,
+  lastPreviewArchetype: null,
   pauseTimer: null,
   stareTimer: null,
   reportSnapshot: null,
@@ -282,7 +292,29 @@ function splitGraphemes(str) {
 
 function tokenize(str) {
   const t = String(str || '').trim();
-  return t ? t.split(/\s+/) : [];
+  if (!t) return [];
+  return t.replace(/(\.{2,}|[,;:—–]+)/g, '$1 ').split(/\s+/).filter(Boolean);
+}
+
+function extractTokenNewlines(rawInput, tokens) {
+  const raw = String(rawInput || '');
+  const newlinesBefore = [];
+  let searchIdx = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
+    const foundIdx = raw.indexOf(tok, searchIdx);
+    if (foundIdx === -1) {
+      newlinesBefore.push(0);
+      continue;
+    }
+    const gap = raw.slice(searchIdx, foundIdx);
+    const nlCount = (gap.match(/\n/g) || []).length;
+    newlinesBefore.push(nlCount);
+    searchIdx = foundIdx + tok.length;
+  }
+  const trailingGap = raw.slice(searchIdx);
+  const trailingNewlines = (trailingGap.match(/\n/g) || []).length;
+  return { newlinesBefore: newlinesBefore, trailingNewlines: trailingNewlines };
 }
 
 function expandSubTokens(rawStr) {
@@ -333,6 +365,14 @@ function semanticRootCandidates(token) {
   const list = [singleCollapse];
   if (doubleCollapse !== singleCollapse) list.push(doubleCollapse);
   if (fullSingle !== singleCollapse && fullSingle !== doubleCollapse) list.push(fullSingle);
+
+  // [Story #14]: Adverb/adjective suffix stripping (-ly) to prevent Levenshtein typo collision
+  if (singleCollapse.endsWith('ly') && singleCollapse.length >= 5) {
+    const stem = singleCollapse.slice(0, -2);
+    if (list.indexOf(stem) === -1) list.push(stem);
+    const eStem = stem + 'e';
+    if (list.indexOf(eStem) === -1) list.push(eStem);
+  }
   return list;
 }
 
@@ -439,6 +479,7 @@ function computeLiwcMetrics(rawOrTokens) {
 const TextHelper = Object.freeze({
   splitGraphemes,
   tokenize,
+  extractTokenNewlines,
   expandSubTokens,
   normalizeToken,
   normalizeSentence,
@@ -1445,6 +1486,53 @@ function appendFadingDots(container, dots) {
   }
 }
 
+// [Story #14]: Compute continuous font axes from biometrics and psycholinguistics
+function computeDynamicFontAxes(wordMeta, isBurst, tone) {
+  const m = wordMeta || {};
+
+  // 1. Weight Axis (wght: 300 to 950):
+  // 35ms dwell -> 350, 80ms -> 500, 180ms+ -> 950
+  const dwell = m.peakForce || 75;
+  const clampedDwell = Math.max(35, Math.min(180, dwell));
+  let weight = Math.round(350 + ((clampedDwell - 35) / 145) * 600);
+  if (m.heavyForce) weight = Math.max(weight, 850);
+  if (typeof m.weight === 'number' && m.weight > weight) {
+    weight = m.weight;
+  }
+
+  // 2. Slant Axis (slnt: 0deg to -14deg):
+  // Deliberate -> 0deg, Fast burst -> -12deg, Max run -> -14deg
+  let slant = 0;
+  if (isBurst) slant = -12;
+  else if (m.fastGlide) slant = -8;
+
+  // 3. Casual & Cursive Axis (CASL: 0.0 to 1.0, CRSV: 0 or 1):
+  // Geometric sans (0.0, CRSV 0) -> Handwritten ink brush & cursive loops (1.0, CRSV 1)
+  let casual = 0.0;
+  let cursive = 0;
+  if (tone === 'warm') {
+    casual = 1.0;
+    cursive = 1;
+  } else if (m.isStretch || m.punch) {
+    casual = 0.85;
+    cursive = 1;
+  } else if (tone === 'sigh') {
+    casual = 0.20;
+    cursive = 0;
+  }
+
+  return { weight: weight, slant: slant, casual: casual, cursive: cursive };
+}
+
+// [Story #14]: Zero-thrash CSS custom property injection on word element
+function applyWordAxes(element, axes) {
+  if (!element || !axes) return;
+  element.style.setProperty('--ink-weight', axes.weight);
+  element.style.setProperty('--ink-slant', axes.slant);
+  element.style.setProperty('--ink-casual', axes.casual);
+  element.style.setProperty('--ink-cursive', axes.cursive != null ? axes.cursive : (axes.casual > 0.5 ? 1 : 0));
+}
+
 function renderInkWord(text, tone, intensity, stretch, physics, wordIndex) {
   const parts = splitTrailingDots(text);
   const base = parts.base;
@@ -1466,11 +1554,11 @@ function renderInkWord(text, tone, intensity, stretch, physics, wordIndex) {
 
   for (let i = 0; i < graphemes.length; i++) {
     const s = document.createElement('span');
-    s.className = stretch ? 'stretch-char ink-char' : 'ink-char';
+    const isEmoji = /\p{Extended_Pictographic}/u.test(graphemes[i]);
+    s.className = (stretch ? 'stretch-char ink-char' : 'ink-char') + (isEmoji ? ' emoji-char' : '');
     s.textContent = graphemes[i];
-    if (resolvedTone === 'warm') {
-      s.style.animationDelay = ((wIdxRaw * 0.12) + (i * 0.075)).toFixed(2) + 's';
-    } else if (fadeRate > 0) {
+    s.style.setProperty('--char-i', i);
+    if (fadeRate > 0) {
       s.style.opacity = Math.max(0.45, 1 - (wIdxRaw * 0.08) - (i % 10) * fadeRate).toFixed(2);
     }
     c.appendChild(s);
@@ -1483,41 +1571,7 @@ function renderStretchedWord(text, tone, intensity, physics, wordIndex) {
   return renderInkWord(text, tone, intensity, true, physics, wordIndex);
 }
 
-function createLightningSVG() {
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(svgNS, 'svg');
-  svg.setAttribute('class', 'lightning-svg');
-  svg.setAttribute('viewBox', '0 0 24 36');
-  const path = document.createElementNS(svgNS, 'path');
-  path.setAttribute('d', 'M14 2 L4 19 L12 19 L9 34 L21 15 L13 15 Z');
-  path.setAttribute('fill', '#fff1f2');
-  path.setAttribute('stroke', '#fb7185');
-  path.setAttribute('stroke-width', '1.2');
-  svg.appendChild(path);
-  return svg;
-}
-
-function createWarmSparksSVG() {
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(svgNS, 'svg');
-  svg.setAttribute('class', 'spark-svg');
-  svg.setAttribute('viewBox', '0 0 24 32');
-
-  const star1 = document.createElementNS(svgNS, 'path');
-  star1.setAttribute('class', 'spark-star-1');
-  star1.setAttribute('d', 'M14 2 Q14 9 21 9 Q14 9 14 16 Q14 9 7 9 Q14 9 14 2 Z');
-  star1.setAttribute('fill', '#fef08a');
-
-  const star2 = document.createElementNS(svgNS, 'path');
-  star2.setAttribute('class', 'spark-star-2');
-  star2.setAttribute('d', 'M7 18 Q7 22 11 22 Q7 22 7 26 Q7 22 3 22 Q7 22 7 18 Z');
-  star2.setAttribute('fill', '#fde047');
-
-  svg.appendChild(star1);
-  svg.appendChild(star2);
-  return svg;
-}
-
+// [Tactile Paper & Living Ink]: Retired cartoon SVG stickers in favor of pure forensic typography and ink physics
 function createBalloonDOM(msg, isPreview) {
   const balloon = document.createElement('div');
   const deliveryCues = (msg.delivery && Array.isArray(msg.delivery.cues)) ? msg.delivery.cues : [];
@@ -1527,14 +1581,13 @@ function createBalloonDOM(msg, isPreview) {
   }
   balloon.className = [msg.style].concat(deliveryClasses).filter(Boolean).join(' ');
 
-  if (msg.physics && msg.physics.borderPx && msg.physics.borderPx > 1.6) {
-    balloon.style.borderWidth = msg.physics.borderPx + 'px';
+  // [Tactile Paper]: Tag committed feed messages to settle gracefully
+  if (!isPreview) {
+    balloon.classList.add('balloon-settled');
   }
 
-  if (msg.style === 'balloon-urgent') {
-    balloon.appendChild(createLightningSVG());
-  } else if (msg.style === 'balloon-warm') {
-    balloon.appendChild(createWarmSparksSVG());
+  if (msg.physics && msg.physics.borderPx && msg.physics.borderPx > 1.6) {
+    balloon.style.borderWidth = msg.physics.borderPx + 'px';
   }
 
   const line = document.createElement('span');
@@ -1553,7 +1606,7 @@ function createBalloonDOM(msg, isPreview) {
       tiltDeg = 2.4;
     }
     if (Math.abs(tiltDeg) > 0.15) {
-      line.style.transform = 'rotate(' + tiltDeg.toFixed(2) + 'deg)';
+      line.style.setProperty('--line-tilt', tiltDeg.toFixed(2) + 'deg');
     }
   }
 
@@ -1562,6 +1615,18 @@ function createBalloonDOM(msg, isPreview) {
   let lastClauseIdx = null;
 
   msg.words.forEach(function(w) {
+    if (w.newlinesBefore > 0) {
+      for (let n = 0; n < w.newlinesBefore; n++) {
+        const br = document.createElement('span');
+        br.className = n === 0 ? 'ink-line-break' : 'ink-line-break ink-empty-line';
+        if (isMultiClause) {
+          line.appendChild(br);
+        } else {
+          activeClauseContainer.appendChild(br);
+        }
+      }
+    }
+
     if (w.ghostType) {
       const span = document.createElement('span');
       span.className = w.ghostType === 'single' ? 'w-cross-single' : 'w-cross-scribble';
@@ -1598,7 +1663,10 @@ function createBalloonDOM(msg, isPreview) {
     }
 
     const currentWordIdx = visibleWordIdx++;
-    const wordTone = (w.localTone && w.localTone !== 'unresolved') ? w.localTone : defaultTone;
+    const clauseTone = (w.localTone && w.localTone !== 'unresolved') ? w.localTone : defaultTone;
+    // [Story #14 Polish]: Targeted emotion accents — only emotional hits, stretches, and punch words bloom
+    const isEmotionTrigger = Boolean(matchEmotionFamily(w.text) || w.isStretch || w.punch);
+    const wordTone = isEmotionTrigger ? clauseTone : 'unresolved';
     const wordPhysics = w.localPhysics || msg.physics;
 
     let renderedWord;
@@ -1607,8 +1675,11 @@ function createBalloonDOM(msg, isPreview) {
     } else {
       renderedWord = renderInkWord(w.text, wordTone, msg.intensity || 1, false, wordPhysics, currentWordIdx);
       if (w.punch) renderedWord.classList.add('w-punch');
-      if (w.weight) renderedWord.style.fontWeight = w.weight;
     }
+
+    // [Story #14]: Apply continuous variable font axes (wght, slnt, CASL)
+    const axes = w.axes || computeDynamicFontAxes(w, Boolean(w.fastGlide), wordTone);
+    applyWordAxes(renderedWord, axes);
 
     if (w.fastGlide && !w.isStretch) renderedWord.classList.add('w-fast-glide');
     if (w.heavyForce) renderedWord.classList.add('w-heavy-force');
@@ -1624,6 +1695,18 @@ function createBalloonDOM(msg, isPreview) {
     }
   });
 
+  if (msg.trailingNewlines > 0) {
+    for (let n = 0; n < msg.trailingNewlines; n++) {
+      const br = document.createElement('span');
+      br.className = n === 0 ? 'ink-line-break' : 'ink-line-break ink-empty-line';
+      if (isMultiClause) {
+        line.appendChild(br);
+      } else {
+        activeClauseContainer.appendChild(br);
+      }
+    }
+  }
+
   balloon.appendChild(line);
   return balloon;
 }
@@ -1634,6 +1717,7 @@ function buildDraftMessage(includeLiveWaiting) {
   const rawInput = inputBox.value;
   const trailingSpace = endsWithSpace(rawInput);
   const tokens = tokenize(rawInput);
+  const lineBreaks = extractTokenNewlines(rawInput, tokens);
   const decision = decideVibe();
   const clauseMap = (decision.semantic && decision.semantic.clauseArc && decision.semantic.clauseArc.wordClauseMap)
     ? decision.semantic.clauseArc.wordClauseMap
@@ -1711,10 +1795,16 @@ function buildDraftMessage(includeLiveWaiting) {
       }
 
       const cInfo = clauseMap[i] || {};
+      const clauseTone = hasConflictingArc ? (cInfo.localTone || 'unresolved') : (decision.tone || decision.family || 'unresolved');
+      const isEmotionTrigger = Boolean(matchEmotionFamily(tokens[i]) || hasLetterStretch(tokens[i]) || m.punch);
+      const wordTone = isEmotionTrigger ? clauseTone : 'unresolved';
+      const axes = computeDynamicFontAxes(m, Boolean(m.fastGlide), wordTone);
 
       finalWords.push({
         text: tokens[i],
-        weight: m.weight,
+        newlinesBefore: lineBreaks.newlinesBefore[i] || 0,
+        weight: axes.weight,
+        axes: axes,
         fastGlide: Boolean(m.fastGlide),
         heavyForce: Boolean(m.heavyForce),
         peakForce: m.peakForce || 0,
@@ -1731,7 +1821,7 @@ function buildDraftMessage(includeLiveWaiting) {
       });
     }
   }
-  return Object.assign({}, decision, { words: finalWords });
+  return Object.assign({}, decision, { words: finalWords, trailingNewlines: lineBreaks.trailingNewlines || 0 });
 }
 
 function isRecentBackspaceBurstFrantic(atTime) {
@@ -1768,11 +1858,11 @@ function updateHUD() {
     const hasText = Boolean(inputBox.value.trim());
     if (hasText && !state.isKeyboardOpen) {
       stareEl.textContent = (state.stareMs / 1000).toFixed(1) + 's ⏸';
-      stareEl.style.color = '#94a3b8';
+      stareEl.style.color = 'var(--muted)';
       stareEl.title = 'Pen down (stare timer paused)';
     } else {
       stareEl.textContent = (state.stareMs / 1000).toFixed(1) + 's';
-      stareEl.style.color = '#38bdf8';
+      stareEl.style.color = 'var(--hud-text-metric)';
       stareEl.title = 'Active typing hesitation';
     }
   }
@@ -1781,23 +1871,23 @@ function updateHUD() {
   if (modeBadge) {
     const hasText = Boolean(inputBox.value.trim());
     if (hasText && !state.isKeyboardOpen) {
-      modeBadge.textContent = 'PEN DOWN (PAUSED)';
-      modeBadge.style.color = '#fbbf24';
+      modeBadge.textContent = 'PAUSED';
+      modeBadge.style.color = 'var(--hud-text-label)';
     } else if (hasText && state.isKeyboardOpen) {
-      modeBadge.textContent = state.isMobileMode ? 'KEYBOARD ACTIVE' : 'TYPING ACTIVE';
-      modeBadge.style.color = '#38bdf8';
+      modeBadge.textContent = state.isMobileMode ? 'TOUCH' : 'TYPING';
+      modeBadge.style.color = 'var(--hud-accent)';
     } else {
-      modeBadge.textContent = state.isMobileMode ? 'MOBILE THUMB MODE' : 'READY';
-      modeBadge.style.color = '#38bdf8';
+      modeBadge.textContent = state.isMobileMode ? 'TOUCH' : 'READY';
+      modeBadge.style.color = 'var(--hud-text-metric)';
     }
   }
   if (liwcEl) {
     liwcEl.textContent = liwc.pct + '%';
-    liwcEl.style.color = liwc.highSelfFocus ? '#fbbf24' : '#38bdf8';
+    liwcEl.style.color = liwc.highSelfFocus ? 'var(--hud-accent)' : 'var(--hud-text-metric)';
   }
   if (dwellEl) {
     dwellEl.textContent = p.avgDwellMs ? Math.round(p.avgDwellMs) + 'ms' : '—';
-    dwellEl.style.color = p.avgDwellMs >= hThresh ? '#fb7185' : '#38bdf8';
+    dwellEl.style.color = p.avgDwellMs >= hThresh ? 'var(--hud-alert)' : 'var(--hud-text-metric)';
   }
   if (flightEl) {
     flightEl.textContent = p.medianItdMs ? Math.round(p.medianItdMs) + 'ms' : '—';
@@ -1806,23 +1896,79 @@ function updateHUD() {
   if (pauseEl) pauseEl.textContent = spacing + 'px';
   if (bkspEl) {
     bkspEl.textContent = frantic ? 'Frantic' : 'Calm';
-    bkspEl.style.color = frantic ? '#fb7185' : '#38bdf8';
+    bkspEl.style.color = frantic ? 'var(--hud-alert)' : 'var(--hud-text-metric)';
   }
 }
 
-function renderPreview() {
+function renderPreview(isClockTick) {
+  const raw = inputBox.value;
   const hasGhosts = Object.values(state.ghostsAtSlot).some(function(a) { return a && a.length; });
-  if (!inputBox.value.trim() && !hasGhosts) {
+  if (!raw.trim() && !hasGhosts) {
+    state.lastPreviewRenderedText = null;
+    state.lastPreviewArchetype = null;
     previewStage.replaceChildren();
     const s = document.createElement('span');
-    s.style.cssText = 'font-size:11.5px;color:#64748b;font-style:italic';
-    s.textContent = 'Live ink preview will appear here as you type...';
+    s.style.cssText = 'font-size:11.5px;color:var(--muted);font-style:italic';
+    s.textContent = 'Ink flows as you write...';
     previewStage.appendChild(s);
-    previewTitle.textContent = 'Live Ink Preview';
+    previewTitle.textContent = 'Preview';
     updateHUD();
     return;
   }
+
   const draft = buildDraftMessage(true);
+  const pThresh = activePauseThreshold();
+
+  // [Story #14]: Zero-Thrash Clock Tick Update:
+  // If text and archetype have not changed on a 100ms clock tick, mutate existing DOM elements in-place.
+  // This prevents resetting CSS animation keyframe timelines (which caused words to violently jitter/shake).
+  if (isClockTick && state.lastPreviewRenderedText === raw && state.lastPreviewArchetype === draft.style) {
+    const trailingSpace = endsWithSpace(raw);
+    const line = previewStage.querySelector('.sentence-line');
+    if (line) {
+      if (trailingSpace) {
+        let liveSpacer = line.querySelector('.pause-space.live-waiting');
+        if (state.livePendingPauseMs >= pThresh) {
+          const pausePx = pauseToPx(state.livePendingPauseMs);
+          if (liveSpacer) {
+            liveSpacer.style.width = pausePx + 'px';
+          } else {
+            liveSpacer = document.createElement('span');
+            liveSpacer.className = 'pause-space live-waiting';
+            liveSpacer.style.width = pausePx + 'px';
+            line.appendChild(liveSpacer);
+          }
+        } else if (liveSpacer) {
+          liveSpacer.remove();
+        }
+      }
+      // Check mid-word pool trigger without rebuilding whole DOM
+      const tokens = tokenize(raw);
+      if (tokens.length > 0 && !trailingSpace) {
+        const lastSlot = tokens.length - 1;
+        const liveHold = state.accumulatedWordHoldMs + (state.isKeyboardOpen && state.lastNonSpaceInputTime != null ? Math.max(0, performance.now() - state.lastNonSpaceInputTime) : 0);
+        if (liveHold >= CONFIG.poolDelayMs) {
+          const allTokens = line.querySelectorAll('.w-token');
+          if (allTokens.length) {
+            const lastTokenEl = allTokens[allTokens.length - 1];
+            if (!lastTokenEl.classList.contains('w-ink-pool')) {
+              lastTokenEl.classList.add('w-ink-pool');
+              if (!state.hapticPoolFiredForSlot[lastSlot]) {
+                state.hapticPoolFiredForSlot[lastSlot] = true;
+                triggerHaptic(28);
+              }
+            }
+          }
+        }
+      }
+    }
+    previewTitle.textContent = draft.caption;
+    updateHUD();
+    return;
+  }
+
+  state.lastPreviewRenderedText = raw;
+  state.lastPreviewArchetype = draft.style;
   previewTitle.textContent = draft.caption;
   previewStage.replaceChildren(createBalloonDOM(draft, true));
   updateHUD();
@@ -1833,18 +1979,18 @@ function renderPreview() {
 //#region 8. FEED RENDERING & DELETION TRACES
 // ============================================================================
 
-function renderFeed() {
+function renderFeed(isNewSend) {
   const frag = document.createDocumentFragment();
   if (!messages.length) {
     const empty = document.createElement('div');
-    empty.style.cssText = 'margin:auto;text-align:center;color:#64748b;font-size:12.5px;padding:24px';
-    empty.textContent = 'Chat feed is clear. Type a message below to see Living Ink in action.';
+    empty.style.cssText = 'margin:auto;text-align:center;color:var(--muted);font-size:12px;padding:24px;font-style:italic';
+    empty.textContent = 'No messages yet.';
     frag.appendChild(empty);
     chatFeed.replaceChildren(frag);
     return;
   }
 
-  messages.forEach(function(m) {
+  messages.forEach(function(m, idx) {
     const wrap = document.createElement('div');
     wrap.className = 'msg-wrap ' + (m.sender === activeSender ? 'mine' : 'theirs');
     const meta = document.createElement('div');
@@ -1856,15 +2002,48 @@ function renderFeed() {
     const balloonEl = createBalloonDOM(m, false);
     const xrayEl = document.createElement('div');
     xrayEl.className = 'xray-pill';
-    xrayEl.textContent = m.xrayText || ('🔍 Ink X-Ray: ' + m.caption);
+    xrayEl.textContent = m.xrayText || ('🔍 X-Ray: ' + m.caption);
+
+    const triggerInkPulse = function() {
+      if (balloonEl._pulseTimer) {
+        clearTimeout(balloonEl._pulseTimer);
+        balloonEl._pulseTimer = null;
+      }
+      balloonEl.classList.remove('ink-pulse');
+      void balloonEl.offsetWidth;
+      balloonEl.classList.add('ink-pulse');
+      balloonEl._pulseTimer = setTimeout(function() {
+        balloonEl.classList.remove('ink-pulse');
+        balloonEl._pulseTimer = null;
+      }, 1450);
+    };
 
     balloonEl.addEventListener('click', function() {
       triggerHaptic(15, true);
       xrayEl.classList.toggle('open');
+      triggerInkPulse();
+    });
+
+    xrayEl.addEventListener('click', function() {
+      triggerHaptic(15, true);
+      xrayEl.classList.remove('open');
+      triggerInkPulse();
     });
 
     wrap.append(meta, balloonEl, xrayEl);
     frag.appendChild(wrap);
+
+    const hasEmotionalCharge = (m.style === 'balloon-warm' || m.style === 'balloon-urgent' || m.style === 'balloon-whisper' || m.style === 'balloon-mixed');
+
+    if (isNewSend && idx === messages.length - 1) {
+      if (hasEmotionalCharge) {
+        setTimeout(function() {
+          triggerInkPulse();
+        }, 20);
+      } else {
+        wrap.classList.add('msg-send-simple');
+      }
+    }
   });
   chatFeed.replaceChildren(frag);
   chatFeed.scrollTop = chatFeed.scrollHeight;
@@ -1904,6 +2083,9 @@ function resetDraftState() {
   state.pauseGapsBySlot = {};
   state.lockedPauseBySlot = {};
   state.livePendingPauseMs = 0;
+  state.lastPreviewRenderedText = null;
+  state.lastPreviewArchetype = null;
+  if (inputBox) inputBox.style.height = '38px';
 }
 
 let maxObservedViewportHeight = (window.visualViewport && window.visualViewport.height) || window.innerHeight || 800;
@@ -2004,7 +2186,7 @@ function startStareClock() {
       state.accumulatedSpacePauseMs = 0;
     }
 
-    renderPreview();
+    renderPreview(true);
   }, 100);
 }
 
@@ -2113,6 +2295,10 @@ function onDeviceMotion(e) {
 }
 
 function onInput(e) {
+  if (inputBox) {
+    inputBox.style.height = 'auto';
+    inputBox.style.height = Math.min(115, Math.max(38, inputBox.scrollHeight)) + 'px';
+  }
   const now = performance.now();
   const input = inputBox.value;
   const prevLen = state.lastInputLength || 0;
@@ -2339,6 +2525,9 @@ function onKeydown(e) {
   }
 
   if (e.key === 'Enter' && !e.shiftKey) {
+    if (state.isMobileMode || isTouchDevice || /android|iphone|ipad|ipod/i.test(navigator.userAgent)) {
+      return; // On mobile / Android keyboard, let Enter insert newline into textarea
+    }
     e.preventDefault();
     sendNow();
   }
@@ -2416,9 +2605,15 @@ function sendNow() {
 
   const paceStr = physical.medianItdMs ? Math.round(physical.medianItdMs) + 'ms' : 'steady';
   const avgForce = physical.meanDwellMs ? Math.round(physical.meanDwellMs) + 'ms avg' : 'normal';
-  const peakForce = physical.peakDwellMs ? Math.round(physical.peakDwellMs) + 'ms peak' : 'normal';
-  const tiltStr = draft.physics ? (draft.physics.lineTiltDeg > 0 ? '+' : '') + draft.physics.lineTiltDeg.toFixed(1) + '°' : '0°';
-  const xrayText = '🔍 Ink X-Ray: Pace ' + paceStr + ' · Force ' + avgForce + ' / ' + peakForce + ' · Pause ' + pSpace + 'px · Edits ' + physical.churn.toFixed(1) + 'x · Line Slant ' + tiltStr;
+  const lastWord = (draft.words && draft.words.length) ? draft.words[draft.words.length - 1] : null;
+  const avgWght = (draft.words && draft.words.length)
+    ? Math.round(draft.words.reduce(function(acc, w) { return acc + ((w.axes && w.axes.weight) || 450); }, 0) / draft.words.length)
+    : 450;
+  const activeSlnt = (lastWord && lastWord.axes) ? lastWord.axes.slant : 0;
+  const activeCasl = (lastWord && lastWord.axes) ? lastWord.axes.casual : 0;
+  const renderedFontAxes = { wght: avgWght, slnt: activeSlnt, casl: activeCasl };
+
+  const xrayText = '🔍 X-Ray: Pace ' + paceStr + ' · Force ' + avgForce + ' (wght ' + avgWght + ', slnt ' + activeSlnt + '°)';
 
   const snapshot = {
     text: rawText,
@@ -2431,6 +2626,7 @@ function sendNow() {
     keyboardDismissals: state.keyboardDismissals || 0,
     pauseSpacing: pSpace,
     totalKeys: state.totalKeys,
+    renderedFontAxes: renderedFontAxes,
     keyTimes: state.keyTimes.slice(),
     backspaceTimes: state.backspaceTimes.slice(),
     timestamp: new Date().toISOString()
@@ -2443,7 +2639,7 @@ function sendNow() {
   inputBox.value = '';
   resetDraftState();
   renderPreview();
-  renderFeed();
+  renderFeed(true);
   inputBox.focus();
 }
 
@@ -2535,6 +2731,7 @@ function formatReportEntry(entry, index) {
     '- **Edit Churn Ratio:** `' + Number(p.churn || 0).toFixed(1) + 'x`',
     '- **Post-Type Stare Hesitation:** `' + ((entry.stareMs || 0) / 1000).toFixed(1) + 's`' + ((entry.keyboardDismissals && entry.keyboardDismissals > 0) ? ' (' + entry.keyboardDismissals + ' pen-down pauses)' : ''),
     '- **Longest Word Pause:** `' + Math.round(p.longestPauseMs || 0) + 'ms` (`' + Number(entry.pauseSpacing || 0) + 'px`)',
+    '- **Rendered Variable Font Axes:** ' + (entry.renderedFontAxes ? '`wght: ' + entry.renderedFontAxes.wght + '` · `slnt: ' + entry.renderedFontAxes.slnt + '°` · `CASL: ' + entry.renderedFontAxes.casl.toFixed(2) + '`' : '`standard`'),
     '- **Active Signal Route:** `' + route + '`.'
   ].join('\n');
 }
@@ -2667,6 +2864,38 @@ byId('clearBtn').addEventListener('click', clearChat);
 byId('reportBtn').addEventListener('click', copyReport);
 byId('btnAlex').addEventListener('click', function() { setSender('Alex'); });
 byId('btnSam').addEventListener('click', function() { setSender('Sam'); });
+
+// [Tactile Paper & Living Ink]: Theme Toggle Engine (Stationery Paper vs. Midnight Journal)
+function applyTheme(theme) {
+  document.body.dataset.theme = theme;
+  const tBtn = byId('themeBtn');
+  if (tBtn) {
+    tBtn.textContent = theme === 'stationery' ? '📜 Paper' : '📓 Vellum';
+    tBtn.title = 'Current Theme: ' + (theme === 'stationery' ? 'Stationery Paper (Tap for Journal)' : 'Midnight Journal (Tap for Paper)');
+  }
+  try {
+    localStorage.setItem('resonance_theme', theme);
+  } catch (err) {}
+}
+
+function toggleTheme() {
+  triggerHaptic(15, true);
+  const current = document.body.dataset.theme || 'stationery';
+  const next = current === 'stationery' ? 'journal' : 'stationery';
+  applyTheme(next);
+  renderPreview();
+  renderFeed();
+}
+
+const themeBtn = byId('themeBtn');
+if (themeBtn) {
+  themeBtn.addEventListener('click', toggleTheme);
+}
+
+const savedTheme = (function() {
+  try { return localStorage.getItem('resonance_theme') || 'stationery'; } catch (e) { return 'stationery'; }
+})();
+applyTheme(savedTheme);
 
 renderFeed();
 startStareClock();
