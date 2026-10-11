@@ -158,7 +158,7 @@ if (window.location.pathname.includes('/test')) {
   const topBar = document.querySelector('.top-bar');
   const brand = document.querySelector('.brand');
   
-  if (brand) brand.textContent = 'Resonance v1 [Test]';
+  if (brand) brand.textContent = 'Resonance v1.0.1 [Test]';
   if (topBar) topBar.style.borderBottomColor = '#fbbf24'; // Gold / var(--amber)
 }
 // ============================================================
@@ -854,7 +854,7 @@ function meaningAnalysis(tokens, raw) {
     || /\bwhat\s*[?!]{2,}/i.test(safeRaw)
   );
 
-  const hasUrgency = /\b(asap|urgent|urgently|emergency|hurry|immediately)\b/.test(collapsed);
+  const hasUrgency = /\b(asap|urgent|urgently|emergency|hurry|immediately|right now)\b/.test(collapsed);
   const isRefusal = !hasQuestion && /\b(no way|nah+|nope|never)\b/.test(collapsed);
   const isAffirmation = !hasQuestion && (/\b(lets go+|yess+|yeahh+)\b/.test(lower) || (wordList.length >= 2 && wordList.every(function(w) { return w === 'yes'; })));
 
@@ -1021,6 +1021,9 @@ function computePhysicsField(semantic, meaning, expression, delivery, structural
   }
   if (meaning.cues.directiveDismissive > 0 && warmth < 0.4) {
     tension = clamp01(Math.max(tension, 0.75));
+  }
+  if (meaning.cues.directive > 0 && (expression.emphaticPunct || structural.uppercasePunch || expression.vectors.uppercase > 0 || meaning.hasUrgency) && warmth < 0.4) {
+    tension = clamp01(Math.max(tension, 0.78));
   }
   if (meaning.hasUrgency && warmth < 0.4) {
     tension = clamp01(tension + 0.58);
@@ -1837,6 +1840,66 @@ function isRecentBackspaceBurstFrantic(atTime) {
   return (latest - fourthLast) <= CONFIG.franticBackspaceWindowMs;
 }
 
+function updateSpeedBar(instantDelta) {
+  if (!pulseFill) return;
+  const now = performance.now();
+  const hasText = Boolean(inputBox && inputBox.value.trim());
+
+  if (!hasText) {
+    pulseFill.style.width = '0%';
+    pulseFill.style.boxShadow = 'none';
+    return;
+  }
+
+  const timeSinceLastKey = state.lastInputTime != null ? Math.max(0, now - state.lastInputTime) : Infinity;
+
+  // When user stops typing for > 550ms, decay bar to zero
+  if (timeSinceLastKey > 550) {
+    pulseFill.style.width = '0%';
+    pulseFill.style.boxShadow = 'none';
+    return;
+  }
+
+  const delta = (typeof instantDelta === 'number') ? instantDelta : (timeSinceLastKey || 180);
+  const p = physicalAnalysis();
+  const bThresh = activeBurstThreshold();
+  const isBurst = (delta <= bThresh) || (Number.isFinite(p.q1ItdMs) && p.q1ItdMs > 0 && p.q1ItdMs <= bThresh);
+  const frantic = isRecentBackspaceBurstFrantic(now) || Boolean(state.franticStreakActive);
+  const isErratic = frantic || (p.churn >= 1.5) || (Number.isFinite(p.qcd) && p.qcd >= 0.36);
+
+  // Speed Percentage: fast taps (<60ms) -> 100%, slow taps (>350ms) -> 15%
+  const clamped = Math.min(Math.max(delta, 50), 350);
+  let pct = Math.round(100 - ((clamped - 50) / 300) * 85);
+
+  if (isErratic) {
+    // Erratic speed & Frantic editing -> Hot Scarlet Red with alert glow
+    pct = Math.max(pct, 92);
+    pulseFill.style.width = pct + '%';
+    pulseFill.style.background = '#dc2626';
+    pulseFill.style.boxShadow = '0 0 10px rgba(220, 38, 38, 0.9)';
+    pulseFill.title = 'Erratic speed & frantic editing';
+  } else if (isBurst || pct >= 72) {
+    // High burst speed -> Glowing electric crimson red
+    pct = Math.max(pct, 80);
+    pulseFill.style.width = pct + '%';
+    pulseFill.style.background = '#ef4444';
+    pulseFill.style.boxShadow = '0 0 8px rgba(239, 68, 68, 0.8)';
+    pulseFill.title = 'High-velocity burst typing (<' + Math.round(bThresh) + 'ms)';
+  } else if (pct >= 40) {
+    // Steady, rhythmic conversational typing -> Jade / Emerald Green
+    pulseFill.style.width = pct + '%';
+    pulseFill.style.background = '#10b981';
+    pulseFill.style.boxShadow = '0 0 5px rgba(16, 185, 129, 0.45)';
+    pulseFill.title = 'Steady typing rhythm';
+  } else {
+    // Deliberate, thoughtful typing -> Calm indigo / periwinkle
+    pulseFill.style.width = pct + '%';
+    pulseFill.style.background = '#6366f1';
+    pulseFill.style.boxShadow = 'none';
+    pulseFill.title = 'Deliberate, slow pace';
+  }
+}
+
 function updateHUD() {
   const p = physicalAnalysis();
   const liwc = computeLiwcMetrics(inputBox.value);
@@ -1892,12 +1955,21 @@ function updateHUD() {
   if (flightEl) {
     flightEl.textContent = p.medianItdMs ? Math.round(p.medianItdMs) + 'ms' : '—';
   }
-  if (burstEl) burstEl.textContent = Number.isFinite(p.q1ItdMs) ? Math.round(p.q1ItdMs) + 'ms' : '—';
+  if (burstEl) {
+    const hasBurst = Number.isFinite(p.q1ItdMs) && p.q1ItdMs > 0;
+    burstEl.textContent = hasBurst ? Math.round(p.q1ItdMs) + 'ms' : '—';
+    if (hasBurst && p.q1ItdMs <= activeBurstThreshold()) {
+      burstEl.style.color = '#38bdf8'; // Bright cyan indicating fast burst pace (<112ms)
+    } else {
+      burstEl.style.color = 'var(--hud-text-metric)';
+    }
+  }
   if (pauseEl) pauseEl.textContent = spacing + 'px';
   if (bkspEl) {
     bkspEl.textContent = frantic ? 'Frantic' : 'Calm';
     bkspEl.style.color = frantic ? 'var(--hud-alert)' : 'var(--hud-text-metric)';
   }
+  updateSpeedBar();
 }
 
 function renderPreview(isClockTick) {
@@ -2741,7 +2813,7 @@ function makeReport() {
 
   if (!entries.length) {
     return [
-      '### Resonance v1 Diagnostic Report',
+      '### Resonance v1.0.1 Diagnostic Report',
       '- **Conversation:** No messages have been submitted yet.',
       '',
       'Type and send a message to begin the session report.'
@@ -2749,7 +2821,7 @@ function makeReport() {
   }
 
   const header = [
-    '### Resonance v1 Signal Field Diagnostic Report',
+    '### Resonance v1.0.1 Signal Field Diagnostic Report',
     '- **Conversation Messages:** ' + entries.length,
     '- **Report Scope:** Entire committed conversation history',
     '',
@@ -2870,8 +2942,8 @@ function applyTheme(theme) {
   document.body.dataset.theme = theme;
   const tBtn = byId('themeBtn');
   if (tBtn) {
-    tBtn.textContent = theme === 'stationery' ? '📜 Paper' : '📓 Vellum';
-    tBtn.title = 'Current Theme: ' + (theme === 'stationery' ? 'Stationery Paper (Tap for Journal)' : 'Midnight Journal (Tap for Paper)');
+    tBtn.textContent = theme === 'stationery' ? '📜 Paper' : '📓 Journal';
+    tBtn.title = 'Current Theme: ' + (theme === 'stationery' ? 'Paper (Tap for Journal)' : 'Journal (Tap for Paper)');
   }
   try {
     localStorage.setItem('resonance_theme', theme);
