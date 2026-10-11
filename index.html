@@ -3,15 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
-<title>Resonance v1</title>
+<!-- [Story #14]: Zero-latency local variable font preload -->
+<link rel="preload" href="./fonts/recursive-var.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
-
+<title>Resonance v1.0.1 · Living Ink</title>
 </head>
 <body>
 <div id="phoneShell" class="phone">
   <div class="top-bar">
-    <div><span class="brand">Resonance v1</span><span class="sub-brand">Living Ink Messenger · Tap Any Bubble for X-Ray</span></div>
+    <div><span class="brand">Resonance v1.0.1</span><span class="sub-brand">Living Ink</span></div>
     <div class="top-actions">
+      <button id="themeBtn" class="report-btn" type="button" title="Switch Theme (Stationery / Journal)">📜 Paper</button>
       <button id="infoBtn" class="report-btn" type="button" title="How Resonance works">ⓘ Guide</button>
       <button id="hudBtn" class="report-btn active-toggle" type="button" title="Show or hide telemetry bar">📊 HUD</button>
       <button id="clearBtn" class="report-btn" type="button" title="Clear chat feed">🗑️</button>
@@ -28,22 +30,22 @@
   <div class="composer" id="composerBar">
     <div id="previewCard" class="preview-card">
       <div class="preview-top">
-        <span id="previewTitle">Live Ink Preview</span><span id="modeBadge" style="font-size:7.5px;color:#38bdf8">READY</span>
+        <span id="previewTitle">Preview</span><span id="modeBadge" style="font-size:7.5px;color:var(--hud-text-metric)">READY</span>
         <div class="pulse-track"><div id="pulseFill" class="pulse-fill"></div></div>
       </div>
-      <div id="previewStage" style="min-height:36px;display:flex;align-items:center;padding:2px 0">
-        <span style="font-size:11.5px;color:#64748b;font-style:italic">Live ink preview will appear here as you type...</span>
+      <div id="previewStage" style="min-height:36px;display:flex;align-items:center;padding:4px 6px">
+        <span style="font-size:11.5px;color:var(--muted);font-style:italic">Ink flows as you write...</span>
       </div>
     </div>
 
     <div class="input-row">
-      <textarea id="inputBox" aria-label="Message" placeholder="Write a message..."></textarea>
+      <textarea id="inputBox" aria-label="Message" placeholder="Write here..."></textarea>
       <button id="sendBtn" class="send-btn" type="button">Send</button>
     </div>
 
     <div class="hud-split-container" id="hudContainer" aria-label="Deterministic telemetry">
       <div class="hud-panel">
-        <div class="hud-sub-title">Macro · Focus &amp; Edits</div>
+        <div class="hud-sub-title">Edits &amp; Stare</div>
         <div class="telemetry-grid">
           <div class="metric-box"><span>CHURN</span><strong id="mChurn">1.0x</strong></div>
           <div class="metric-box"><span>STARE</span><strong id="mStare">0.0s</strong></div>
@@ -51,7 +53,7 @@
         </div>
       </div>
       <div class="hud-panel">
-        <div class="hud-sub-title">Biometrics · Pace &amp; Force</div>
+        <div class="hud-sub-title">Pace &amp; Force</div>
         <div class="telemetry-grid micro">
           <div class="metric-box"><span>FORCE</span><strong id="mDwell">—</strong></div>
           <div class="metric-box"><span>MED-ITD</span><strong id="mFlight">—</strong></div>
